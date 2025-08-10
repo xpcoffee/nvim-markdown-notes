@@ -267,10 +267,105 @@ M.create_note = function()
   end
 end
 
+-- Navigate to a note, creating it if it doesn't exist
+M.follow_link = function()
+  assert(M.notes_root_path, "notes_root_path must be configured")
+  
+  -- Get the current line and cursor position
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2]
+  
+  -- Look for [[note_name]] pattern around cursor
+  local link_pattern = '%[%[([^%]]+)%]%]'
+  local note_name = nil
+  
+  -- Find all [[...]] patterns in the line
+  for match in line:gmatch(link_pattern) do
+    local start_pos, end_pos = line:find('%[%[' .. match:gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%1') .. '%]%]')
+    if start_pos and end_pos and col >= start_pos - 1 and col <= end_pos - 1 then
+      note_name = match
+      break
+    end
+  end
+  
+  if not note_name then
+    -- Fall back to word under cursor if no [[]] link found
+    note_name = vim.fn.expand('<cword>')
+    if note_name == "" then
+      print("No note name found under cursor")
+      return
+    end
+  end
+  
+  -- Look for existing note files that match the note name
+  local possible_files = {}
+  for file in vim.fn.glob(M.notes_root_path .. '/**/*.md'):gmatch("[^\r\n]+") do
+    local filename = vim.fn.fnamemodify(file, ':t:r')
+    -- Check if filename contains the note name (for dated notes like "2025-08-10 my note")
+    if filename:lower():find(note_name:lower(), 1, true) or filename:lower() == note_name:lower() then
+      table.insert(possible_files, file)
+    end
+  end
+  
+  if #possible_files == 1 then
+    -- Exact match found, open it
+    vim.cmd('e ' .. vim.fn.fnameescape(possible_files[1]))
+  elseif #possible_files > 1 then
+    -- Multiple matches, show picker
+    pickers.new({}, {
+      prompt_title = "Select note: " .. note_name,
+      finder = finders.new_table {
+        results = possible_files,
+        entry_maker = function(entry)
+          return {
+            value = entry,
+            display = vim.fn.fnamemodify(entry, ':t'),
+            ordinal = vim.fn.fnamemodify(entry, ':t'),
+          }
+        end,
+      },
+      sorter = conf.generic_sorter({}),
+      attach_mappings = function(prompt_bufnr, _)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          vim.cmd('e ' .. vim.fn.fnameescape(selection.value))
+        end)
+        return true
+      end,
+    }):find()
+  else
+    -- No match found, offer to create new note
+    local create_note = vim.fn.confirm("Note '" .. note_name .. "' not found. Create it?", "&Yes\n&No", 1)
+    if create_note == 1 then
+      local today = vim.fn.strftime("%Y-%m-%d")
+      local note_filename = today .. " " .. note_name .. ".md"
+      local note_filepath = vim.fn.expand(vim.fn.resolve(M.notes_root_path .. "/" .. note_filename))
+      
+      local header = "# " .. note_name
+      os.execute('echo "' .. header .. '" > "' .. note_filepath .. '"')
+      vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))
+      print("Created note: " .. note_filename)
+    end
+  end
+end
+
 -- Setup the extension: use user configuration & set up commands
 M.setup = function(opts)
   M.notes_root_path = opts.notes_root_path:gsub("/$", "")
   M.journal_dir_name = opts.journal_dir_name
+  
+  -- Set up autocommands for markdown files
+  vim.api.nvim_create_augroup("MarkdownNotes", { clear = true })
+  vim.api.nvim_create_autocmd("FileType", {
+    group = "MarkdownNotes",
+    pattern = "markdown",
+    callback = function()
+      -- Map gf and Ctrl-] to follow_link function
+      vim.keymap.set("n", "gf", M.follow_link, { buffer = true, desc = "Follow note link" })
+      vim.keymap.set("n", "<C-]>", M.follow_link, { buffer = true, desc = "Follow note link" })
+    end,
+  })
 end
 
 return M

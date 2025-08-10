@@ -10,6 +10,7 @@ A Neovim plugin for managing Markdown notes and journals, inspired by tools like
 - **Daily Journal:** Create and open daily journal entries with one command.
 - **Journal Picker:** Quickly open recent journal files (today, yesterday, last 5 days) via a Telescope menu.
 - **Create Note:** Create new notes with date-prefixed filenames in YYYY-MM-dd format.
+- **Smart Link Following:** Navigate to notes using `gf` or `Ctrl-]` on `[[note_name]]` links or words, with automatic note creation for missing files.
 
 ## Installation
 
@@ -67,6 +68,9 @@ vim.keymap.set("n", "<leader>nn", notes.create_note)
 
 3. **List backlinks (notes referencing the current note):**  
    Press `<leader>nb`.
+
+4. **Follow note links:**  
+   Place cursor on `[[note_name]]` or any word and press `gf` or `Ctrl-]` to navigate to the note. If the note doesn't exist, you'll be prompted to create it.
 
 ## Requirements
 
