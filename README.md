@@ -9,6 +9,7 @@ A Neovim plugin for managing Markdown notes and journals, inspired by tools like
 - **Backlinks:** Find and open files that link to the current note.
 - **Daily Journal:** Create and open daily journal entries with one command.
 - **Journal Picker:** Quickly open recent journal files (today, yesterday, last 5 days) via a Telescope menu.
+- **Create Note:** Create new notes with date-prefixed filenames in YYYY-MM-dd format.
 
 ## Installation
 
@@ -51,6 +52,9 @@ vim.keymap.set("n", "<leader>nj", notes.open_daily_journal)
 
 -- Pick a journal by date
 vim.keymap.set("n", "<leader>np", notes.open_journal)
+
+-- Create a new note with date prefix
+vim.keymap.set("n", "<leader>nn", notes.create_note)
 ```
 
 ## Example Workflow
