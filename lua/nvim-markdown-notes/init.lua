@@ -15,13 +15,21 @@ M.create_note = notes.create_note
 
 M.custom_jump_to_tag = function()
   local word = vim.fn.expand('<cWORD>')
-  tags.find_tag(M.notes_root_path, word)
+  local jumped = tags.find_tag(M.notes_root_path, word)
+  if jumped then
+    return
+  end
+
+  jumped = notes.wiki_link_jump()
 end
 
 -- Setup the extension: use user configuration & set up commands
 M.setup = function(opts)
   M.notes_root_path = vim.fn.expand(opts.notes_root_path):gsub("/$", "")
   M.journal_dir_name = opts.journal_dir_name
+
+  local custom_parser = require("nvim-markdown-notes.treesitter_grammar")
+  custom_parser.setup(opts)
 
   -- Set up autocommands for markdown files
   vim.api.nvim_create_augroup("MarkdownNotes", { clear = true })
