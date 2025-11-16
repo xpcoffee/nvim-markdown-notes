@@ -32,17 +32,40 @@ local get_wiki_link_text = function()
     current = current:parent()
   end
 
-  return node
+  return nil
 end
 
-M.wiki_link_jump = function()
-  local text = get_wiki_link_text()
-  print(vim.inspect(text))
+local ignore_case = function(name)
+  return name:lower();
+end
 
+local function get_file_path(notes_root, name)
+  local name_lower = ignore_case(name .. ".md")
+
+  -- Get all files in directory
+  local files = vim.fs.find(function(filename)
+    return ignore_case(filename) == name_lower
+  end, {
+    path = notes_root,
+    type = "file",
+    limit = 1
+  })
+
+  return files[1]
+end
+
+M.wiki_link_jump = function(notes_root)
+  local text = get_wiki_link_text()
   if text == nil then
     return false
   end
 
+  local note_filepath = get_file_path(notes_root, text)
+  if note_filepath == nil then
+    return false
+  end
+
+  vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))
   return true
 end
 

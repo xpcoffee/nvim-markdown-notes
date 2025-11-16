@@ -22,7 +22,7 @@ M.custom_jump_to_tag = function()
     return
   end
 
-  jumped = wikilink.wiki_link_jump()
+  jumped = wikilink.wiki_link_jump(M.notes_root_path)
 end
 
 -- Setup the extension: use user configuration & set up commands
