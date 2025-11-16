@@ -12,6 +12,16 @@ A Neovim plugin for managing Markdown notes and journals, inspired by tools like
 - **Create Note:** Create new notes with date-prefixed filenames in YYYY-MM-dd format.
 - **Smart Link Following:** Navigate to notes using `gf` or `Ctrl-]` on `[[note_name]]` links or words, with automatic note creation for missing files.
 
+## Prerequisites
+
+This plugin extends the markdown grammar for tree-sitter. At the moment this needs to be compiled and linked during installation.
+
+```
+npm install -g tree-sitter-cli
+```
+
+TODO: build using CI and download the grammar .so file during installation.
+
 ## Installation
 
 Install with your favorite Neovim plugin manager. Example using [lazy.nvim](https://github.com/folke/lazy.nvim):
@@ -88,3 +98,12 @@ require("nvim-markdown-notes").setup {
   journal_dir_name = "journal",
 }
 ```
+
+## Development - custom treesitter grammar
+
+Build using the Makefile.
+
+```
+make
+```
+

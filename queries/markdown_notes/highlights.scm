@@ -1,2 +1,2 @@
-(wikilink) @markup.link
-(link_text) @markup.link.text
+(wikilink) @markup.wikilink
+(link_text) @markup.wikilink.text
