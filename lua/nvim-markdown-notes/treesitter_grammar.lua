@@ -1,7 +1,5 @@
 local M = {}
 
-
-
 -- Helper to get plugin root directory
 local function get_plugin_root()
   local source = debug.getinfo(1, "S").source:sub(2)
@@ -165,6 +163,41 @@ function M.setup(opts)
     vim.fn.system(cmd)
     vim.notify("Parser cleaned", vim.log.levels.INFO)
   end, {})
+
+  vim.api.nvim_create_autocmd("FileType", {
+    pattern = "markdown",
+    callback = function(args)
+      vim.schedule(function()
+        local ok, parser = pcall(vim.treesitter.get_parser, args.buf, 'markdown')
+        if ok and parser then
+          parser:parse(true) -- Force parse to trigger injection creation
+        end
+      end)
+    end,
+    desc = "Force treesitter parse to create language injections"
+  })
+end
+
+M.get_markdown_notes_node = function(bufnr, row, col)
+  -- Get the markdown_notes parser and find the node in IT
+  local parser = vim.treesitter.get_parser(bufnr, 'markdown')
+  local md_notes_parser = parser:children()['markdown_notes']
+
+  if not md_notes_parser then
+    return nil
+  end
+
+  -- Find the node in the markdown_notes tree
+  local node = nil
+  for _, tree in ipairs(md_notes_parser:trees()) do
+    local root = tree:root()
+    node = root:named_descendant_for_range(row, col, row, col)
+    if node then
+      break
+    end
+  end
+
+  return node
 end
 
 return M

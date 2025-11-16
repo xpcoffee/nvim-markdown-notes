@@ -13,6 +13,8 @@ M.open_journal = journal.open_journal
 local notes = require("nvim-markdown-notes.notes")
 M.create_note = notes.create_note
 
+local wikilink = require("nvim-markdown-notes.wikilink")
+
 M.custom_jump_to_tag = function()
   local word = vim.fn.expand('<cWORD>')
   local jumped = tags.find_tag(M.notes_root_path, word)
@@ -20,7 +22,7 @@ M.custom_jump_to_tag = function()
     return
   end
 
-  jumped = notes.wiki_link_jump()
+  jumped = wikilink.wiki_link_jump()
 end
 
 -- Setup the extension: use user configuration & set up commands
