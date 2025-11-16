@@ -56,17 +56,25 @@ end
 
 M.wiki_link_jump = function(notes_root)
   local text = get_wiki_link_text()
-  if text == nil then
-    return false
+  local is_wikilink = text ~= nil;
+
+  if not is_wikilink then
+    return is_wikilink
   end
 
   local note_filepath = get_file_path(notes_root, text)
   if note_filepath == nil then
-    return false
+    vim.ui.select({ 'Yes', 'No' }, { prompt = 'Note does not exist. Create it?' }, function(result)
+      if result == 'Yes' then
+        local new_filepath = vim.fn.expand(vim.fs.joinpath(notes_root, text .. ".md"))
+        vim.cmd('e ' .. vim.fn.fnameescape(new_filepath))
+      end
+    end)
+  else
+    vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))
   end
 
-  vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))
-  return true
+  return is_wikilink
 end
 
 return M
