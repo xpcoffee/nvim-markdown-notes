@@ -86,7 +86,7 @@ M.list_all_tags = function(notes_root_path)
       actions.select_default:replace(function()
         actions.close(prompt_bufnr)
         local selection = action_state.get_selected_entry()
-        M.find_tag(selection.value)
+        M.find_tag(M.notes_root_path, selection.value)
       end)
       return true
     end,

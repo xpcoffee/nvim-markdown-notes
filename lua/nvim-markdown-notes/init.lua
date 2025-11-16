@@ -1,7 +1,9 @@
 local M = {}
 
 local tags = require("nvim-markdown-notes.tags")
-M.list_all_tags = tags.list_all_tags
+M.list_all_tags = function()
+  tags.list_all_tags(M.notes_root_path)
+end
 M.view_files_with_tag = tags.view_files_with_tag
 
 local journal = require("nvim-markdown-notes.journal")
