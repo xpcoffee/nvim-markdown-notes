@@ -13,16 +13,15 @@ end
 local function parser_exists()
   local parser_files = vim.api.nvim_get_runtime_file('parser/markdown_notes.so', false)
   if #parser_files > 0 then
-    return true
+    return true, parser_files[1]
   end
 
-  -- Also check for other extensions
   parser_files = vim.api.nvim_get_runtime_file('parser/markdown_notes.dll', false)
   if #parser_files > 0 then
-    return true
+    return true, parser_files[1]
   end
 
-  return false
+  return false, nil
 end
 
 -- Build parser using make
@@ -74,24 +73,33 @@ end
 -- Check dependencies
 local function check_dependencies()
   -- Check if tree-sitter CLI is available
-  local result = vim.fn.system('which tree-sitter')
+  vim.fn.system('which tree-sitter')
   if vim.v.shell_error ~= 0 then
     return false, "tree-sitter CLI not found. Install with: npm install -g tree-sitter-cli"
   end
 
   -- Check if make is available
-  result = vim.fn.system('which make')
+  vim.fn.system('which make')
   if vim.v.shell_error ~= 0 then
     return false, "make not found. Please install build tools."
   end
 
   -- Check if compiler is available
-  result = vim.fn.system('which cc')
+  vim.fn.system('which cc')
   if vim.v.shell_error ~= 0 then
     return false, "C compiler (cc) not found. Please install a C compiler."
   end
 
   return true, nil
+end
+
+local register_parser = function(parser_path)
+  pcall(vim.treesitter.language.add, 'markdown_notes', { path = parser_path })
+
+  vim.notify(
+    "MarkdownNotesBuildParser ready",
+    vim.log.levels.INFO
+  )
 end
 
 function M.setup(opts)
@@ -104,7 +112,9 @@ function M.setup(opts)
   end
 
   -- Check if parser exists
-  if not parser_exists() then
+  local exists, path = parser_exists()
+
+  if not exists then
     if auto_build then
       -- Check dependencies first
       local deps_ok, deps_err = check_dependencies()
@@ -125,10 +135,7 @@ function M.setup(opts)
       vim.notify("Parser not found. Building automatically...", vim.log.levels.INFO)
       build_parser(function(success)
         if success then
-          vim.notify(
-            "MarkdownNotesBuildParser ready",
-            vim.log.levels.INFO
-          )
+          register_parser(path)
         end
       end)
     else
@@ -138,10 +145,7 @@ function M.setup(opts)
       )
     end
   else
-    vim.notify(
-      "MarkdownNotesBuildParser ready",
-      vim.log.levels.INFO
-    )
+    register_parser(path)
   end
 
   -- Create user command to manually build parser
