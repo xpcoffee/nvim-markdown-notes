@@ -13,16 +13,12 @@ M.create_note = notes.create_note
 
 M.custom_jump_to_tag = function()
   local word = vim.fn.expand('<cWORD>')
-
-  local result = tags.find_tag(word)
-  print(vim.inspect(result))
+  tags.find_tag(M.notes_root_path, word)
 end
-
-print(vim.inspect(custom_jump_to_tag))
 
 -- Setup the extension: use user configuration & set up commands
 M.setup = function(opts)
-  M.notes_root_path = opts.notes_root_path:gsub("/$", "")
+  M.notes_root_path = vim.fn.expand(opts.notes_root_path):gsub("/$", "")
   M.journal_dir_name = opts.journal_dir_name
 
   -- Set up autocommands for markdown files
@@ -31,7 +27,6 @@ M.setup = function(opts)
     group = "MarkdownNotes",
     pattern = "markdown",
     callback = function()
-      print("in callback" .. vim.inspect(M.custom_jump_to_tag))
       -- Map gf and Ctrl-] to follow_link function
       vim.keymap.set("n", "<C-]>", M.custom_jump_to_tag, { buffer = true, desc = "Follow note link" })
     end,
