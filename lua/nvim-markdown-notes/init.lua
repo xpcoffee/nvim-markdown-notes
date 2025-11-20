@@ -17,7 +17,9 @@ M.open_journal = function()
 end
 
 local notes = require("nvim-markdown-notes.notes")
-M.create_note = notes.create_note
+M.create_note = function()
+	notes.create_note(M.notes_root_path)
+end
 
 local wikilink = require("nvim-markdown-notes.wikilink")
 
@@ -30,6 +32,8 @@ M.custom_jump_to_tag = function()
 
 	jumped = wikilink.wiki_link_jump(M.notes_root_path)
 end
+
+M.register_wikilink_cmp_source = require("nvim-markdown-notes.cmp_wikilinks_completion_source").register_cmp_source
 
 -- Setup the extension: use user configuration & set up commands
 M.setup = function(opts)
