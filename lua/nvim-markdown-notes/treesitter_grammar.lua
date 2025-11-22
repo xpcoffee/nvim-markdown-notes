@@ -149,7 +149,7 @@ function M.setup(opts)
   -- Create user command to manually build parser
   vim.api.nvim_create_user_command('MarkdownNotesBuildParser', function()
     local deps_ok, deps_err = check_dependencies()
-    if not deps_ok then
+    if not deps_ok and deps_err then
       vim.notify(deps_err, vim.log.levels.ERROR)
       return
     end
@@ -181,6 +181,10 @@ end
 M.get_markdown_notes_node = function(bufnr, row, col)
   -- Get the markdown_notes parser and find the node in IT
   local parser = vim.treesitter.get_parser(bufnr, 'markdown')
+  if not parser then
+    return nil
+  end
+
   local md_notes_parser = parser:children()['markdown_notes']
 
   if not md_notes_parser then
