@@ -43,6 +43,20 @@ M.setup = function(opts)
 	local custom_parser = require("nvim-markdown-notes.treesitter_grammar")
 	custom_parser.setup(opts)
 
+	-- Set up highlight groups for markdown_notes treesitter captures
+	local highlights = {
+		["@markup.wikilink"] = { link = "Special" },
+		["@markup.wikilink.text"] = { link = "Underlined" },
+		["@markup.mention"] = { link = "Special" },
+		["@markup.mention.text"] = { link = "Identifier" },
+		["@markup.tag"] = { link = "Tag" },
+		["@markup.tag.text"] = { link = "Tag" },
+	}
+
+	for group, settings in pairs(highlights) do
+		vim.api.nvim_set_hl(0, group, settings)
+	end
+
 	-- Set up autocommands for markdown files
 	vim.api.nvim_create_augroup("MarkdownNotes", { clear = true })
 	vim.api.nvim_create_autocmd("FileType", {
