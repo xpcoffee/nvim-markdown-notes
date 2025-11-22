@@ -1,35 +1,20 @@
 local M = {}
 
-local custom_parser = require("nvim-markdown-notes.treesitter_grammar")
+---@param node_type string
+---@return boolean
+M.is_match = function(node_type)
+  return node_type == "wikilink"
+end
 
-local get_wiki_link_text = function()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  row = row - 1
-
-  -- Check if we're on a wikilink capture
-  local captures = vim.treesitter.get_captures_at_pos(bufnr, row, col)
-  local captures_names = vim.tbl_map(function(c) return c.capture end, captures)
-  local is_wikilink = vim.tbl_contains(captures_names, "markup.wikilink.text")
-
-  if not is_wikilink then
-    return nil
-  end
-
-
-  local node = custom_parser.get_markdown_notes_node(bufnr, row, col)
-  if not node then
-    return nil
-  end
-
+---@param node TSNode
+---@return string | nil
+local get_text = function(node)
   -- Navigate to find link_text node
-  local current = node
-  while current do
-    if current:type() == "link_text" then
-      local text = vim.treesitter.get_node_text(current, bufnr)
+  for child, _ in node:iter_children() do
+    if child:type() == "link_text" then
+      local text = vim.treesitter.get_node_text(child, 0)
       return text
     end
-    current = current:parent()
   end
 
   return nil
@@ -54,19 +39,21 @@ local function get_file_path(notes_root, name)
   return files[1]
 end
 
-M.wiki_link_jump = function(notes_root)
-  local text = get_wiki_link_text()
+
+---@param node TSNode
+M.jump = function(node)
+  local text = get_text(node)
   local is_wikilink = text ~= nil;
 
   if not is_wikilink then
     return is_wikilink
   end
 
-  local note_filepath = get_file_path(notes_root, text)
+  local note_filepath = get_file_path(M.opts.notes_root_path, text)
   if note_filepath == nil then
     vim.ui.select({ 'Yes', 'No' }, { prompt = 'Note does not exist. Create it?' }, function(result)
       if result == 'Yes' then
-        local new_filepath = vim.fn.expand(vim.fs.joinpath(notes_root, text .. ".md"))
+        local new_filepath = vim.fn.expand(vim.fs.joinpath(M.opts.notes_root_path, text .. ".md"))
         vim.cmd('e ' .. vim.fn.fnameescape(new_filepath))
       end
     end)
@@ -75,6 +62,11 @@ M.wiki_link_jump = function(notes_root)
   end
 
   return is_wikilink
+end
+
+---@param opts MarkdownNotesFullOpts
+M.setup = function(opts)
+  M.opts = opts
 end
 
 return M

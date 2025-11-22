@@ -1,5 +1,7 @@
 local M = {}
 
+local ROOT_NODE_NAME = "source_file"
+
 -- Helper to get plugin root directory
 local function get_plugin_root()
   local source = debug.getinfo(1, "S").source:sub(2)
@@ -178,26 +180,57 @@ function M.setup(opts)
   })
 end
 
+---@return TSNode | nil
 M.get_markdown_notes_node = function(bufnr, row, col)
-  -- Get the markdown_notes parser and find the node in IT
+  -- Get the markdown parser
   local parser = vim.treesitter.get_parser(bufnr, 'markdown')
   if not parser then
     return nil
   end
 
   local md_notes_parser = parser:children()['markdown_notes']
-
   if not md_notes_parser then
     return nil
   end
 
-  -- Find the node in the markdown_notes tree
+  -- Iterate through all trees to find the one containing the cursor
+  local trees = md_notes_parser:trees()
+  if not trees or #trees == 0 then
+    return nil
+  end
+
   local node = nil
-  for _, tree in ipairs(md_notes_parser:trees()) do
+  for _, tree in ipairs(trees) do
     local root = tree:root()
-    node = root:named_descendant_for_range(row, col, row, col)
-    if node then
-      break
+    local tree_start_row, _, tree_end_row, _ = root:range()
+
+    -- Check if this tree contains the cursor position
+    if tree_start_row <= row and tree_end_row >= row then
+      node = root:named_descendant_for_range(row, col, row, col)
+      if node then
+        break
+      end
+    end
+  end
+
+  if not node then
+    return nil
+  end
+
+  -- Navigate up to the root (allows us to get get a consistent depth even if cursor is on a lested element)
+  while node and node:type() ~= ROOT_NODE_NAME do
+    node = node:parent()
+  end
+
+  -- Find the child that the cursor is on
+  if node and node:type() == ROOT_NODE_NAME then
+    for child in node:iter_children() do
+      local child_start_row, child_start_col, child_end_row, child_end_col = child:range()
+      if (child_start_row <= row and child_end_row >= row) and
+          (child_start_col <= col and child_end_col >= col) then
+        node = child
+        break
+      end
     end
   end
 
