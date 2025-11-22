@@ -17,7 +17,7 @@ module.exports = grammar({
 
     link_text: () => /[^\]]+/,
 
-    // Match any character that's not [
-    text: () => /[^\[]+/,
+    // Match any character that's not [, @, or #
+    text: () => /[^\[@#]+/,
   },
 });
