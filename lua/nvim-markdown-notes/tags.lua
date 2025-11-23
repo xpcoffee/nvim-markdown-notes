@@ -41,10 +41,14 @@ end
 -- Allow navigation to one via telescope
 ---@param tag_text string
 M.find_tag = function(tag_text)
+  -- Match tag followed by non-tag character or end of line
+  -- Tag characters are: [a-zA-Z0-9_-]
+  local pattern = '#' .. tag_text .. '([^a-zA-Z0-9_-]|$)'
+
   pickers.new({}, {
     prompt_title = "Files with tag: " .. tag_text,
     finder = finders.new_oneshot_job(
-      { 'rg', '--vimgrep', tag_text, M.opts.notes_root_path },
+      { 'rg', '--vimgrep', '-e', pattern, M.opts.notes_root_path },
       {
         entry_maker = function(entry)
           local filename, lnum, col, text = entry:match("(.+):(%d+):(%d+):(.*)")
