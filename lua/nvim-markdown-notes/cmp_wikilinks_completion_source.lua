@@ -12,7 +12,7 @@ end
 M.register_cmp_source = function(cmp, name)
   local wikilinks = require("nvim-markdown-notes.wikilink")
   local mentions = require("nvim-markdown-notes.mentions")
-  local tags = require("nvim-markdown-notes.tags")
+  -- local tags = require("nvim-markdown-notes.tags")
 
   function completion_source:get_debug_name()
     return name
@@ -26,8 +26,9 @@ M.register_cmp_source = function(cmp, name)
       items = wikilinks.suggest(cmp)
     elseif mentions.is_completion_match(line) then
       items = mentions.suggest(cmp)
-    elseif tags.is_completion_match(line) then
-      items = tags.suggest(cmp)
+      -- markdown lsp suggestions are good enough for tags
+      -- elseif tags.is_completion_match(line) then
+      --   items = tags.suggest(cmp)
     end
 
     callback({ items = items, isIncomplete = false })
