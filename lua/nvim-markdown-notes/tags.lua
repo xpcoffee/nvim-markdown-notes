@@ -119,6 +119,17 @@ M.list_all_tags = function()
   }):find()
 end
 
+M.is_completion_match = function(line)
+  return line:match("%#$")
+end
+
+M.suggest = function(cmp)
+  return {
+    { label = "tag1", kind = cmp.lsp.CompletionItemKind.Reference },
+    { label = "tag2", kind = cmp.lsp.CompletionItemKind.Reference },
+  }
+end
+
 ---@param opts MarkdownNotesFullOpts
 M.setup = function(opts)
   M.opts = opts

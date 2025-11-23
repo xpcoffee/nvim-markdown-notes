@@ -3,15 +3,13 @@ local finders = require("telescope.finders")
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 local conf = require("telescope.config").values
+local notes = require("nvim-markdown-notes.notes")
 
 local M = {}
 M.opts = {}
 
 -- Show a telescope menu with options for what journal to open
 M.open_journal = function()
-  assert(M.opts.notes_root_path, "notes_root_path must be configured")
-  assert(M.opts.journal_dir_name, "journal_dir_name must be configured")
-
   local function get_date_options()
     local options = {}
     for i = 0, 5 do
@@ -47,10 +45,7 @@ M.open_journal = function()
           actions.select_default:replace(function()
             actions.close(prompt_bufnr)
             local selection = action_state.get_selected_entry()
-            local journal_file_name = selection.value .. ".md"
-            local journal_file_path = vim.fn.expand(
-              vim.fn.resolve(M.opts.notes_root_path .. "/" .. M.opts.journal_dir_name .. "/" .. journal_file_name)
-            )
+            local journal_file_path = notes.get_file_path(M.opts.journal_dir_path, selection.value)
 
             if type(journal_file_path) == "string" then
               if vim.fn.filereadable(journal_file_path) == 1 then
@@ -70,17 +65,16 @@ end
 -- Open today's journal entry - populate it if it doesn't exist.
 M.open_daily_journal = function()
   local today = vim.fn.strftime("%Y-%m-%d")
-  local daily_note_file_name = today .. ".md"
-  local daily_note_file_path =
-      vim.fn.expand(vim.fn.resolve(M.opts.notes_root_path ..
-        "/" .. M.opts.journal_dir_name .. "/" .. daily_note_file_name))
+  local daily_note_file_path = notes.get_file_path(M.opts.journal_dir_path, today)
+  print(daily_note_file_path)
 
-  if type(daily_note_file_path) == "string" then
-    if vim.fn.filereadable(daily_note_file_path) == 1 then
-      vim.cmd("e " .. daily_note_file_path)
-    else
-      os.execute('echo "# ' .. today .. '" > ' .. daily_note_file_path)
-      vim.cmd("e " .. daily_note_file_path)
+  if type(daily_note_file_path) == "string" and vim.fn.filereadable(daily_note_file_path) == 1 then
+    vim.cmd("e " .. daily_note_file_path)
+  else
+    local title = today
+    local file_path = notes.create_note(title, M.opts.journal_dir_path, today)
+    if file_path then
+      vim.cmd("e " .. vim.fn.fnameescape(file_path))
     end
   end
 end

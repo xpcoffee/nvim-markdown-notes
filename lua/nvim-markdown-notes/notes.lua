@@ -7,7 +7,9 @@ M.create_top_level_note = function()
   end
 
   local note_filepath = M.create_note(title, M.opts.notes_root_path, title, M.opts.add_date_prefix)
-  vim.cmd("e " .. vim.fn.fnameescape(note_filepath))
+  if note_filepath then
+    vim.cmd("e " .. vim.fn.fnameescape(note_filepath))
+  end
 end
 
 ---Create a new note with title input, formatted as "YYYY-MM-dd title.md"
@@ -15,7 +17,7 @@ end
 ---@param root_path any
 ---@param filename any
 ---@param add_date_prefix any
----@return string
+---@return string?
 M.create_note = function(title, root_path, filename, add_date_prefix)
   local note_filename = filename:gsub(" ", "-"):lower() .. ".md"
   local note_filepath = vim.fn.resolve(vim.fn.expand(vim.fs.joinpath(root_path, note_filename)))
@@ -48,11 +50,11 @@ M.get_file_path = function(root_path, relative_filename)
   local expected_path = vim.fn.resolve(vim.fn.expand(vim.fs.joinpath(root_path, name_lower)))
   local dir = vim.fs.dirname(expected_path)
   local name = vim.fs.basename(expected_path)
-  print("DEBUG: searching in " .. dir .. "for" .. name)
+  print("DEBUG: searching in " .. dir .. " for " .. name)
 
   -- Get all files in directory
   local files = vim.fs.find(function(filename)
-    return M.ignore_case(filename) == name
+    return ignore_case(filename) == name
   end, {
     path = dir,
     type = "file",

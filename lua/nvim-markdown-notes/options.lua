@@ -9,8 +9,8 @@
 
 ---@class MarkdownNotesFullOpts
 ---@field notes_root_path string Path to the notes directory
----@field journal_dir_name string Name of journal subdirectory
----@field people_dir_name string Name of journal subdirectory
+---@field journal_dir_path string Name of journal subdirectory
+---@field people_dir_path string Name of journal subdirectory
 ---@field auto_build boolean Whether to auto-build parser
 ---@field highlights {string: vim.api.keyset.highlight} Custom highlights
 ---@field debug_logging boolean
@@ -37,12 +37,16 @@ local defaults = {
 ---@param opts table
 ---@return MarkdownNotesFullOpts
 M.configure_options = function(opts)
-  local options = vim.tbl_extend("force", defaults, opts, {
-    notes_root_path = vim.fn.expand(opts.notes_root_path):gsub("/$", "")
+  local notes_root_path = vim.fn.expand(opts.notes_root_path):gsub("/$", "")
+
+  local options = vim.tbl_extend("force", defaults, opts)
+  options = vim.tbl_extend("force", options, {
+    notes_root_path = notes_root_path,
+    journal_dir_path = vim.fs.joinpath(notes_root_path, options.journal_dir_name),
+    people_dir_path = vim.fs.joinpath(notes_root_path, options.people_dir_name)
   })
 
   assert(options.notes_root_path, "notes_root_path must be configured")
-  assert(options.journal_dir_name, "journal_dir_name must be configured")
 
   return options
 end

@@ -40,6 +40,17 @@ M.jump = function(node)
   end
 end
 
+M.is_completion_match = function(line)
+  return line:match("%[%[$")
+end
+
+M.suggest = function(cmp)
+  return {
+    { label = "wiki1", kind = cmp.lsp.CompletionItemKind.Reference },
+    { label = "wiki2", kind = cmp.lsp.CompletionItemKind.Reference },
+  }
+end
+
 ---@param opts MarkdownNotesFullOpts
 M.setup = function(opts)
   M.opts = opts
