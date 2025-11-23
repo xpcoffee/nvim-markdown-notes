@@ -1,12 +1,11 @@
 # nvim-markdown-notes
 
-A Neovim plugin for managing Markdown notes and journals, inspired by tools like Obsidian. Features seamless tag searching, backlink navigation, and daily journal creation—all powered by Telescope.
+A Neovim plugin for managing a repo of Markdown notes, inspired by tools like Obsidian.
 
 ## Features
 
 - **Tag Search:** List all tags in your notes and quickly jump to files by tag.
 - **Files by Tag:** View all Markdown files containing a specific tag.
-- **Backlinks:** Find and open files that link to the current note.
 - **Daily Journal:** Create and open daily journal entries with one command.
 - **Journal Picker:** Quickly open recent journal files (today, yesterday, last 5 days) via a Telescope menu.
 - **Create Note:** Create new notes with date-prefixed filenames in YYYY-MM-dd format.
@@ -33,7 +32,6 @@ Install with your favorite Neovim plugin manager. Example using [lazy.nvim](http
   config = function()
     require("nvim-markdown-notes").setup {
       notes_root_path = "~/notes",          -- directory containing your markdown notes
-      journal_dir_name = "journal",         -- subdirectory for daily journals
     }
   end,
 }
@@ -106,4 +104,3 @@ Build using the Makefile.
 ```
 make
 ```
-
