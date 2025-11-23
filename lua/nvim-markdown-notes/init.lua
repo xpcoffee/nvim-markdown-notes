@@ -6,13 +6,14 @@ local tags = require("nvim-markdown-notes.tags")
 local journal = require("nvim-markdown-notes.journal")
 local notes = require("nvim-markdown-notes.notes")
 local wikilink = require("nvim-markdown-notes.wikilink")
+local mentions = require("nvim-markdown-notes.mentions")
 
 -- export functions from modules
 M.list_all_tags = tags.list_all_tags
 M.view_files_with_tag = tags.find_tag
 M.open_daily_journal = journal.open_daily_journal
 M.open_journal = journal.open_journal
-M.create_note = notes.create_note
+M.create_note = notes.create_top_level_note
 M.register_wikilink_cmp_source = nvim_cmp_source.register_cmp_source
 
 --- custom jump-to-definition for my notes
@@ -31,8 +32,8 @@ M.custom_jump_to_tag = function()
     tags.jump(node)
   elseif wikilink.is_match(node_type) then
     wikilink.jump(node)
-  elseif node_type == "mention" then
-    -- todo
+  elseif mentions.is_match(node_type) then
+    mentions.jump(node)
   end
 end
 
@@ -44,6 +45,7 @@ M.setup = function(opts)
   tags.setup(options)
   journal.setup(options)
   wikilink.setup(options)
+  mentions.setup(options)
   custom_parser.setup(options)
 
   -- Set up highlight groups for markdown_notes treesitter captures

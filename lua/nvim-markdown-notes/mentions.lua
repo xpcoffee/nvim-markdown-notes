@@ -5,7 +5,7 @@ local notes = require("nvim-markdown-notes.notes")
 ---@param node_type string
 ---@return boolean
 M.is_match = function(node_type)
-  return node_type == "wikilink"
+  return node_type == "mention"
 end
 
 ---@param node TSNode
@@ -13,7 +13,7 @@ end
 local get_text = function(node)
   -- Navigate to find link_text node
   for child, _ in node:iter_children() do
-    if child:type() == "link_text" then
+    if child:type() == "mention_text" then
       local text = vim.treesitter.get_node_text(child, 0)
       return text
     end
@@ -22,18 +22,19 @@ local get_text = function(node)
   return nil
 end
 
+
 ---@param node TSNode
 M.jump = function(node)
   local text = get_text(node)
 
-  local note_filepath = notes.get_file_path(M.opts.notes_root_path, text)
+  local note_filepath = notes.get_file_path(M.opts.people_dir_name, text)
   if note_filepath == nil then
-    vim.ui.select({ 'Yes', 'No' }, { prompt = 'Note does not exist. Create it?' }, function(result)
+    vim.ui.select({ 'Yes', 'No' }, { prompt = 'Person not found. Create a new note for them?' }, function(result)
       if result == 'Yes' then
-        notes.create_note("New note", M.opts.notes_root_path, text)
+        notes.create_note("New person", M.opts.people_dir_name, text)
       end
 
-      --todo replace the text in the node with the relative filepath
+      -- update the node text
     end)
   else
     vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))

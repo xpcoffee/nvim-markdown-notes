@@ -1,21 +1,27 @@
 ---@class MarkdownNotesOpts
 ---@field notes_root_path string Path to the notes directory
----@field journal_dir_name string Name of journal subdirectory
+---@field journal_dir_name? string Name of journal subdirectory
+---@field people_dir_name? string Name of journal subdirectory
 ---@field auto_build? boolean Whether to auto-build parser
 ---@field highlights? {string: vim.api.keyset.highlight} Custom highlights
 ---@field debug_logging? boolean
+---@field add_date_prefix? boolean
 
 ---@class MarkdownNotesFullOpts
 ---@field notes_root_path string Path to the notes directory
 ---@field journal_dir_name string Name of journal subdirectory
+---@field people_dir_name string Name of journal subdirectory
 ---@field auto_build boolean Whether to auto-build parser
 ---@field highlights {string: vim.api.keyset.highlight} Custom highlights
 ---@field debug_logging boolean
+---@field add_date_prefix boolean
 
 local M = {}
 
 local defaults = {
   auto_build = true,
+  journal_dir_name = "journal",
+  people_dir_name = "people",
   highlights = {
     ["@markup.wikilink"] = { link = "Special" },
     ["@markup.wikilink.text"] = { link = "Underlined" },
@@ -24,7 +30,8 @@ local defaults = {
     ["@markup.tag"] = { link = "Tag" },
     ["@markup.tag.text"] = { link = "Tag" },
   },
-  debug_logging = false
+  debug_logging = false,
+  add_date_prefix = true
 }
 
 ---@param opts table

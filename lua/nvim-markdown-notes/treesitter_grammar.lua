@@ -102,6 +102,8 @@ local register_parser = function(parser_path)
   )
 end
 
+---Build (if necessary) and register the custom grammar with treesitter
+---@param opts MarkdownNotesFullOpts
 function M.setup(opts)
   opts = opts or {}
 
@@ -180,6 +182,7 @@ function M.setup(opts)
   })
 end
 
+---Return the custom node under the cursor
 ---@return TSNode | nil
 M.get_markdown_notes_node = function(bufnr, row, col)
   -- Get the markdown parser
