@@ -46,10 +46,24 @@ M.is_completion_match = function(line)
 end
 
 M.suggest = function(cmp)
-  return {
-    { label = "mention1", kind = cmp.lsp.CompletionItemKind.Reference },
-    { label = "mention2", kind = cmp.lsp.CompletionItemKind.Reference },
-  }
+  if not M.opts or not M.opts.people_dir_path then
+    return {}
+  end
+
+  -- Get all markdown files from people directory
+  local files = vim.fn.glob(M.opts.people_dir_path .. "/*.md", false, true)
+  local items = {}
+
+  for _, file_path in ipairs(files) do
+    -- Get just the filename without path and .md extension
+    local filename = vim.fn.fnamemodify(file_path, ":t:r")
+    table.insert(items, {
+      label = filename,
+      kind = cmp.lsp.CompletionItemKind.Reference,
+    })
+  end
+
+  return items
 end
 
 ---@param opts MarkdownNotesFullOpts
