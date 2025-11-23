@@ -45,10 +45,27 @@ M.is_completion_match = function(line)
 end
 
 M.suggest = function(cmp)
-  return {
-    { label = "wiki1", kind = cmp.lsp.CompletionItemKind.Reference },
-    { label = "wiki2", kind = cmp.lsp.CompletionItemKind.Reference },
-  }
+  if not M.opts or not M.opts.notes_root_path then
+    return {}
+  end
+
+  -- Get all markdown files recursively from notes directory
+  local files = vim.fn.glob(M.opts.notes_root_path .. "/**/*.md", false, true)
+  local items = {}
+
+  for _, file_path in ipairs(files) do
+    -- Get relative path from notes_root_path and remove .md extension
+    local relative_path = vim.fn.fnamemodify(file_path, ":~:.")
+      :gsub("^" .. vim.pesc(M.opts.notes_root_path .. "/"), "")
+      :gsub("%.md$", "")
+
+    table.insert(items, {
+      label = relative_path,
+      kind = cmp.lsp.CompletionItemKind.Reference,
+    })
+  end
+
+  return items
 end
 
 ---@param opts MarkdownNotesFullOpts
