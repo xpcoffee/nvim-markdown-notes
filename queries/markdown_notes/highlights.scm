@@ -1,8 +1,8 @@
-(wikilink) @markup.wikilink
-(link_text) @markup.wikilink.text
+((wikilink) @markup.wikilink
+  (#set! "priority" 130))
 
-(mention) @markup.mention
-(mention_text) @markup.mention.text
+((mention) @markup.mention
+  (#set! "priority" 130))
 
-(hashtag) @markup.tag
-(hashtag_text) @markup.tag.text
+((hashtag) @markup.tag
+  (#set! "priority" 130))

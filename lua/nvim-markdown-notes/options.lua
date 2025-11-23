@@ -23,12 +23,9 @@ local defaults = {
   journal_dir_name = "journal",
   people_dir_name = "people",
   highlights = {
-    ["@markup.wikilink"] = { link = "Special" },
-    ["@markup.wikilink.text"] = { link = "Underlined" },
-    ["@markup.mention"] = { link = "Special" },
-    ["@markup.mention.text"] = { link = "Identifier" },
+    ["@markup.wikilink"] = { link = "Tag" },
+    ["@markup.mention"] = { link = "Tag" },
     ["@markup.tag"] = { link = "Tag" },
-    ["@markup.tag.text"] = { link = "Tag" },
   },
   debug_logging = false,
   add_date_prefix = true
