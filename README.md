@@ -6,10 +6,12 @@ A Neovim plugin for managing a repo of Markdown notes, inspired by tools like Ob
 
 - **Tag Search:** List all tags in your notes and quickly jump to files by tag.
 - **Files by Tag:** View all Markdown files containing a specific tag.
+- **People/Mentions:** List all people (@mentions) and find notes mentioning them.
 - **Daily Journal:** Create and open daily journal entries with one command.
 - **Journal Picker:** Quickly open recent journal files (today, yesterday, last 5 days) via a Telescope menu.
 - **Create Note:** Create new notes with date-prefixed filenames in YYYY-MM-dd format.
 - **Smart Link Following:** Navigate to notes using `gf` or `Ctrl-]` on `[[note_name]]` links or words, with automatic note creation for missing files.
+- **Graph Database (Optional):** Index your notes in Memgraph for fast relationship queries, backlinks, and AI-powered exploration.
 
 ## Prerequisites
 
@@ -44,41 +46,50 @@ All features are exposed as Lua functions. You can map them to commands or keybi
 ```lua
 local notes = require("nvim-markdown-notes")
 
--- Find all tags in your notes
-vim.keymap.set("n", "<leader>nt", notes.list_all_tags)
-
--- Show files with the tag under cursor
-vim.keymap.set("n", "<leader>nf", function()
+-- Tags (uses graph if available, falls back to ripgrep)
+vim.keymap.set("n", "<leader>nt", notes.list_all_tags)           -- Browse all tags
+vim.keymap.set("n", "<leader>nf", function()                      -- Files with tag under cursor
   local tag = vim.fn.expand("<cword>")
   notes.view_files_with_tag(tag)
 end)
 
--- List backlinks to the current file
-vim.keymap.set("n", "<leader>nb", notes.list_backlinks)
+-- People (uses graph if available, falls back to directory/ripgrep)
+vim.keymap.set("n", "<leader>np", notes.list_all_people)          -- Browse all people
+vim.keymap.set("n", "<leader>nm", function()                      -- Files mentioning person
+  local person = vim.fn.expand("<cword>")
+  notes.view_files_with_mention(person)
+end)
 
--- Open today's journal entry
-vim.keymap.set("n", "<leader>nj", notes.open_daily_journal)
+-- Journal
+vim.keymap.set("n", "<leader>nj", notes.open_daily_journal)       -- Today's journal
+vim.keymap.set("n", "<leader>nJ", notes.open_journal)             -- Pick journal by date
 
--- Pick a journal by date
-vim.keymap.set("n", "<leader>np", notes.open_journal)
-
--- Create a new note with date prefix
-vim.keymap.set("n", "<leader>nn", notes.create_note)
+-- Notes
+vim.keymap.set("n", "<leader>nn", notes.create_note)              -- Create new note
 ```
 
 ## Example Workflow
 
-1. **Jump to all files tagged `#project`:**  
+1. **Browse all tags:**
+   Press `<leader>nt` to see all tags. With graph enabled, you'll see usage counts.
+
+2. **Jump to files tagged `#project`:**
    Place your cursor over `#project` and press `<leader>nf`.
 
-2. **Open today’s journal:**  
-   Press `<leader>nj` to create or open today's entry in your journal directory.
+3. **Browse all people:**
+   Press `<leader>np` to see all people. With graph enabled, you'll see mention counts.
 
-3. **List backlinks (notes referencing the current note):**  
-   Press `<leader>nb`.
+4. **Find notes mentioning someone:**
+   Place cursor on `@john-doe` and press `<leader>nm`.
 
-4. **Follow note links:**  
-   Place cursor on `[[note_name]]` or any word and press `gf` or `Ctrl-]` to navigate to the note. If the note doesn't exist, you'll be prompted to create it.
+5. **Open today's journal:**
+   Press `<leader>nj` to create or open today's entry.
+
+6. **Follow note links:**
+   Place cursor on `[[note_name]]` and press `Ctrl-]` to navigate. If the note doesn't exist, you'll be prompted to create it.
+
+7. **With graph enabled - explore connections:**
+   Use `:MarkdownNotesGraphBacklinks` to see what links to the current note, or `:MarkdownNotesGraphRelated` to find notes sharing tags/mentions.
 
 ## Requirements
 
@@ -137,16 +148,35 @@ require("nvim-markdown-notes").setup {
 
 ### Graph Commands
 
+**Primary Navigation (use these for searching):**
+
 | Command | Description |
 |---------|-------------|
-| `:MarkdownNotesGraphStatus` | Show connection status and graph statistics |
+| `:MarkdownNotesGraphTags` | Browse all tags with usage counts |
+| `:MarkdownNotesGraphPeople` | Browse all people with mention counts |
+
+**Contextual Navigation (for current note):**
+
+| Command | Description |
+|---------|-------------|
+| `:MarkdownNotesGraphBacklinks` | Notes linking to current note |
+| `:MarkdownNotesGraphRelated` | Notes sharing tags/mentions with current note |
+| `:MarkdownNotesGraphContext` | Show all relationships for current note |
+
+**Direct Search:**
+
+| Command | Description |
+|---------|-------------|
+| `:MarkdownNotesGraphTagged [tag]` | Notes with specific tag (or browse if no arg) |
+| `:MarkdownNotesGraphMentions [person]` | Notes mentioning person (or browse if no arg) |
+
+**Management:**
+
+| Command | Description |
+|---------|-------------|
+| `:MarkdownNotesGraphStatus` | Show connection status and statistics |
 | `:MarkdownNotesGraphReindex` | Rebuild entire graph from all notes |
 | `:MarkdownNotesGraphSync` | Sync current buffer to graph |
-| `:MarkdownNotesGraphBacklinks` | Telescope picker: notes linking to current note |
-| `:MarkdownNotesGraphRelated` | Telescope picker: notes sharing tags/mentions |
-| `:MarkdownNotesGraphTagged <tag>` | Telescope picker: notes with specific tag |
-| `:MarkdownNotesGraphMentions <person>` | Telescope picker: notes mentioning person |
-| `:MarkdownNotesGraphContext` | Show all relationships for current note |
 | `:MarkdownNotesGraphConnect` | Connect or reconnect to Memgraph |
 
 ### Graph Keymaps
@@ -172,10 +202,32 @@ end)
 
 ### Lua API
 
+The main API functions automatically use the graph database when connected, falling back to ripgrep/filesystem when not:
+
+```lua
+local notes = require("nvim-markdown-notes")
+
+-- These auto-detect graph availability
+notes.list_all_tags()                    -- Browse tags (graph: with counts)
+notes.view_files_with_tag("project")     -- Find notes with #project
+notes.list_all_people()                  -- Browse people (graph: with mention counts)
+notes.view_files_with_mention("john")    -- Find notes mentioning @john
+```
+
+For direct graph access:
+
 ```lua
 local graph = require("nvim-markdown-notes").graph
 
--- Query backlinks
+-- Primary navigation (Telescope pickers)
+graph.browse_tags()                      -- All tags with counts
+graph.browse_people()                    -- All people with counts
+graph.find_by_tag("project")             -- Notes with tag
+graph.find_by_mention("john")            -- Notes mentioning person
+graph.show_backlinks()                   -- Backlinks to current note
+graph.show_related()                     -- Related notes
+
+-- Low-level query API (async callbacks)
 graph.get_query().find_backlinks(filepath, function(success, results, err)
   if success then
     for _, note in ipairs(results) do
@@ -184,19 +236,13 @@ graph.get_query().find_backlinks(filepath, function(success, results, err)
   end
 end)
 
--- Find related notes
-graph.get_query().find_related(filepath, callback)
-
--- Find notes by tag
 graph.get_query().find_by_tag("project", callback)
-
--- Find notes mentioning a person
 graph.get_query().find_by_mention("john", callback)
-
--- Run raw Cypher query
+graph.get_query().get_all_tags(callback)
+graph.get_query().get_all_persons(callback)
 graph.get_query().run_cypher("MATCH (n:Note) RETURN n.title LIMIT 10", {}, callback)
 
--- Manual sync
+-- Sync
 graph.get_sync().update_note(filepath)
 graph.get_sync().reindex_all()
 
@@ -251,15 +297,35 @@ Configure in your MCP client (e.g., Claude Code):
 }
 ```
 
-Available MCP tools:
-- `search_notes` - Search notes by title
-- `get_backlinks` - Find notes linking to a note
-- `get_related` - Find related notes
-- `get_note_context` - Get all relationships for a note
-- `find_by_tag` - Find notes with a tag
-- `find_by_mention` - Find notes mentioning a person
-- `query_graph` - Run raw Cypher queries
-- `get_graph_stats` - Get graph statistics
+### MCP Search Strategy
+
+The MCP server provides a `get_search_instructions` tool that guides AI assistants on the optimal search order:
+
+1. **Tags** (`find_by_tag`) - Most efficient for topic-based searches
+2. **Date ranges** (`find_journals_by_date`) - For temporal queries on journals and date-prefixed notes
+3. **Mentions** (`find_by_mention`) - For person-related queries
+4. **Filename** (`find_by_filename`) - When you know part of the note's name
+5. **Graph exploration** (`get_backlinks`, `get_related`) - For connection-based discovery
+6. **Full-text search** (`search_content`) - Last resort, slower
+
+### Available MCP Tools
+
+| Tool | Priority | Description |
+|------|----------|-------------|
+| `get_search_instructions` | - | Returns the search strategy guide |
+| `find_by_tag` | 1 | Find notes with a hashtag |
+| `find_journals_by_date` | 2 | Find journals/notes by date range |
+| `find_by_mention` | 3 | Find notes mentioning a person |
+| `find_by_filename` | 4 | Search by filename/title pattern |
+| `get_backlinks` | 5 | Notes linking to a specific note |
+| `get_related` | 5 | Notes sharing tags/mentions |
+| `get_note_context` | 5 | All relationships for a note |
+| `search_content` | 6 | Full-text content search (last resort) |
+| `list_all_tags` | - | List all tags with counts |
+| `list_all_persons` | - | List all people with counts |
+| `query_graph` | - | Run raw Cypher queries |
+| `get_graph_stats` | - | Get graph statistics |
+| `reindex_notes` | - | Rebuild the graph from all notes |
 
 ## Development - custom treesitter grammar
 

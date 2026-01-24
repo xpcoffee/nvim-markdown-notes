@@ -11,10 +11,19 @@ local weblink = require("nvim-markdown-notes.weblink")
 local graph = require("nvim-markdown-notes.graph")
 
 -- export functions from modules
+-- Tags (uses graph if available, falls back to ripgrep)
 M.list_all_tags = tags.list_all_tags
 M.view_files_with_tag = tags.find_tag
+
+-- People/Mentions (uses graph if available, falls back to directory/ripgrep)
+M.list_all_people = mentions.list_all_people
+M.view_files_with_mention = mentions.find_person
+
+-- Journal
 M.open_daily_journal = journal.open_daily_journal
 M.open_journal = journal.open_journal
+
+-- Notes
 M.create_note = notes.create_top_level_note
 M.register_wikilink_cmp_source = nvim_cmp_source.register_cmp_source
 

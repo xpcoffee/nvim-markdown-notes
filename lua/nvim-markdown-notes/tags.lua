@@ -37,10 +37,31 @@ M.jump = function(node)
   M.find_tag(tag_text)
 end
 
+--- Check if graph is available and connected
+---@return boolean
+local function graph_available()
+  if not M.opts or not M.opts.memgraph or not M.opts.memgraph.enabled then
+    return false
+  end
+  local ok, graph = pcall(require, "nvim-markdown-notes.graph")
+  return ok and graph.is_connected()
+end
+
 -- View all files in the project that contain a specific tag
--- Allow navigation to one via telescope
+-- Uses graph database if available, falls back to ripgrep
 ---@param tag_text string
 M.find_tag = function(tag_text)
+  -- Remove # prefix if present
+  tag_text = tag_text:gsub("^#", "")
+
+  -- Use graph if available (faster and more accurate)
+  if graph_available() then
+    local graph = require("nvim-markdown-notes.graph")
+    graph.find_by_tag(tag_text)
+    return
+  end
+
+  -- Fallback to ripgrep
   -- Match tag followed by non-tag character or end of line
   -- Tag characters are: [a-zA-Z0-9_-]
   local pattern = '#' .. tag_text .. '([^a-zA-Z0-9_-]|$)'
@@ -76,8 +97,17 @@ M.find_tag = function(tag_text)
   }):find()
 end
 
--- List all tags in the project and show them intelescope
+-- List all tags in the project and show them in telescope
+-- Uses graph database if available (includes usage counts), falls back to ripgrep
 M.list_all_tags = function()
+  -- Use graph if available (faster and shows usage counts)
+  if graph_available() then
+    local graph = require("nvim-markdown-notes.graph")
+    graph.browse_tags()
+    return
+  end
+
+  -- Fallback to ripgrep
   local function get_all_tags()
     local command = string.format(
       "rg -o '(^|\\s)#[a-zA-Z0-9-]+' %s --no-filename --type markdown | sed 's/^\\s*//' | sort | uniq",
