@@ -447,6 +447,125 @@ class MemgraphNotesServer:
             })
 
 
+    def find_journals_by_date_range(self, start_date: str, end_date: str = None) -> list[dict]:
+        """Find journal notes within a date range.
+
+        Journal files are in /journal/ directory with YYYY-MM-DD format.
+        Date-prefixed notes have formats like: YYYY-MM-DD, YYYY-MM, YYYY-HH (half-year)
+        """
+        if end_date is None:
+            end_date = start_date
+
+        # Search for journal entries and date-prefixed notes
+        cypher = """
+            MATCH (n:Note)
+            WHERE (n.path CONTAINS '/journal/' OR n.filename STARTS WITH '20')
+            AND (
+                n.filename >= $start_date
+                AND n.filename <= $end_date + 'z'
+            )
+            RETURN n.path AS path, n.title AS title, n.filename AS filename
+            ORDER BY n.filename DESC
+        """
+        results = self.query(cypher, {"start_date": start_date, "end_date": end_date})
+        return [{"path": r[0], "title": r[1], "filename": r[2]} for r in results]
+
+    def find_notes_by_filename_pattern(self, pattern: str) -> list[dict]:
+        """Find notes where filename contains the pattern."""
+        cypher = """
+            MATCH (n:Note)
+            WHERE toLower(n.filename) CONTAINS toLower($pattern)
+               OR toLower(n.title) CONTAINS toLower($pattern)
+            RETURN n.path AS path, n.title AS title, n.filename AS filename
+            ORDER BY n.filename DESC
+            LIMIT 50
+        """
+        results = self.query(cypher, {"pattern": pattern})
+        return [{"path": r[0], "title": r[1], "filename": r[2]} for r in results]
+
+    def search_note_content(self, query: str) -> list[dict]:
+        """Full-text search in note content. Use this as a LAST RESORT."""
+        # Read files and search content since Memgraph doesn't store full content
+        results = []
+        md_files = glob.glob(os.path.join(self.notes_root, '**/*.md'), recursive=True)
+
+        query_lower = query.lower()
+        for filepath in md_files:
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                if query_lower in content.lower():
+                    lines = content.split('\n')
+                    title = lines[0] if lines else Path(filepath).stem
+                    title = re.sub(r'^#+ ', '', title)
+
+                    # Find matching lines
+                    matching_lines = []
+                    for i, line in enumerate(lines, 1):
+                        if query_lower in line.lower():
+                            matching_lines.append({"line": i, "text": line.strip()[:100]})
+                            if len(matching_lines) >= 3:
+                                break
+
+                    results.append({
+                        "path": filepath,
+                        "title": title,
+                        "matches": matching_lines
+                    })
+                    if len(results) >= 20:
+                        break
+            except Exception:
+                pass
+
+        return results
+
+
+# Search strategy instructions for AI assistants
+SEARCH_INSTRUCTIONS = """
+## Notes Search Strategy
+
+When searching through notes, use this priority order (most efficient first):
+
+### 1. TAGS (Highest Priority)
+Use `find_by_tag` for topic-based searches. Tags are explicit categorizations.
+- Examples: #project, #ops, #tech, #oncall, #meeting
+- Use `list_all_tags` to see available tags
+
+### 2. DATE RANGES (For temporal queries)
+Use `find_journals_by_date` for time-based searches.
+- Journal files: Located in /journal/ with YYYY-MM-DD.md format
+- Date-prefixed notes: Many notes start with dates like "2024-05-02 Project name.md"
+- Date formats: YYYY-MM-DD (specific day), YYYY-MM (month), YYYY-HH (half-year)
+- Example: To find notes from January 2025, use start_date="2025-01", end_date="2025-01"
+
+### 3. MENTIONS (For people-related queries)
+Use `find_by_mention` to find notes mentioning specific people.
+- Format: @person-name (e.g., @john-doe)
+- Use `list_all_persons` to see known people
+
+### 4. FILENAME/TITLE SEARCH
+Use `find_by_filename` when you know part of the note's name.
+- Searches both filename and title
+- Good for finding specific topics or projects
+
+### 5. GRAPH EXPLORATION
+Use `get_backlinks`, `get_related`, `get_note_context` to explore connections.
+- Find what links TO a note (backlinks)
+- Find notes sharing tags/mentions (related)
+
+### 6. FULL-TEXT SEARCH (Last Resort)
+Use `search_content` only when other methods fail.
+- Searches inside note content
+- Slower and less precise
+- Returns matching line numbers
+
+### Tips:
+- Combine methods: Find by tag first, then filter by date
+- Use `get_graph_stats` to understand the knowledge base size
+- Use `query_graph` for complex Cypher queries when needed
+"""
+
+
 def create_server(mg_server: MemgraphNotesServer) -> Server:
     """Create the MCP server with tools and resources."""
     server = Server("memgraph-notes")
@@ -455,14 +574,82 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
     async def list_tools() -> list[Tool]:
         return [
             Tool(
-                name="search_notes",
-                description="Search for notes by title or filename pattern",
+                name="get_search_instructions",
+                description="CALL THIS FIRST before searching. Returns the recommended search strategy for finding notes efficiently. Explains which tools to use in what order.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {}
+                }
+            ),
+            Tool(
+                name="find_by_tag",
+                description="[PRIORITY 1] Find notes by hashtag. Most efficient for topic searches. Use list_all_tags first to see available tags.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string",
+                            "description": "Tag name (with or without # prefix). Examples: project, ops, tech, oncall"
+                        }
+                    },
+                    "required": ["tag"]
+                }
+            ),
+            Tool(
+                name="find_journals_by_date",
+                description="[PRIORITY 2] Find journal entries and date-prefixed notes within a date range. Journals are in /journal/YYYY-MM-DD.md format. Many notes have date prefixes like '2024-05-02 Topic.md'.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "start_date": {
+                            "type": "string",
+                            "description": "Start date in YYYY-MM-DD, YYYY-MM, or YYYY format"
+                        },
+                        "end_date": {
+                            "type": "string",
+                            "description": "End date (optional, defaults to start_date for single day/month)"
+                        }
+                    },
+                    "required": ["start_date"]
+                }
+            ),
+            Tool(
+                name="find_by_mention",
+                description="[PRIORITY 3] Find notes mentioning a specific person (@mentions). Use list_all_persons to see known people.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "person": {
+                            "type": "string",
+                            "description": "Person name (with or without @ prefix). Example: john-doe"
+                        }
+                    },
+                    "required": ["person"]
+                }
+            ),
+            Tool(
+                name="find_by_filename",
+                description="[PRIORITY 4] Search notes by filename or title pattern. Good when you know part of the note's name.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "type": "string",
+                            "description": "Pattern to match in filename or title (case-insensitive)"
+                        }
+                    },
+                    "required": ["pattern"]
+                }
+            ),
+            Tool(
+                name="search_content",
+                description="[PRIORITY 6 - LAST RESORT] Full-text search in note content. Only use when tags, dates, mentions, and filename searches fail. Slower and less precise.",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "Search query to match against note titles"
+                            "description": "Text to search for in note content"
                         }
                     },
                     "required": ["query"]
@@ -470,7 +657,7 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
             ),
             Tool(
                 name="get_backlinks",
-                description="Find all notes that link to a specific note (backlinks)",
+                description="[PRIORITY 5 - Graph exploration] Find all notes that link TO a specific note via [[wikilinks]].",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -484,7 +671,7 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
             ),
             Tool(
                 name="get_related",
-                description="Find notes related to a specific note (sharing tags or mentions)",
+                description="[PRIORITY 5 - Graph exploration] Find notes related to a specific note by shared tags or mentions.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -498,7 +685,7 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
             ),
             Tool(
                 name="get_note_context",
-                description="Get full context for a note including all its relationships (links, backlinks, tags, mentions)",
+                description="[PRIORITY 5 - Graph exploration] Get full context for a note: outgoing links, backlinks, tags, and mentions.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -511,36 +698,8 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
                 }
             ),
             Tool(
-                name="find_by_tag",
-                description="Find all notes with a specific hashtag",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string",
-                            "description": "Tag name (with or without # prefix)"
-                        }
-                    },
-                    "required": ["tag"]
-                }
-            ),
-            Tool(
-                name="find_by_mention",
-                description="Find all notes that mention a specific person",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "person": {
-                            "type": "string",
-                            "description": "Person name (with or without @ prefix)"
-                        }
-                    },
-                    "required": ["person"]
-                }
-            ),
-            Tool(
                 name="list_all_tags",
-                description="List all tags used in the notes with their usage counts",
+                description="List all hashtags used in notes with usage counts. Use this to discover available tags before using find_by_tag.",
                 inputSchema={
                     "type": "object",
                     "properties": {}
@@ -548,7 +707,7 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
             ),
             Tool(
                 name="list_all_persons",
-                description="List all persons mentioned in notes",
+                description="List all persons mentioned in notes. Use this to discover people before using find_by_mention.",
                 inputSchema={
                     "type": "object",
                     "properties": {}
@@ -593,8 +752,27 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         try:
-            if name == "search_notes":
-                results = mg_server.search_notes(arguments["query"])
+            if name == "get_search_instructions":
+                return [TextContent(type="text", text=SEARCH_INSTRUCTIONS)]
+
+            elif name == "find_journals_by_date":
+                results = mg_server.find_journals_by_date_range(
+                    arguments["start_date"],
+                    arguments.get("end_date")
+                )
+                return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
+            elif name == "find_by_filename":
+                results = mg_server.find_notes_by_filename_pattern(arguments["pattern"])
+                return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
+            elif name == "search_content":
+                results = mg_server.search_note_content(arguments["query"])
+                return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
+            elif name == "search_notes":
+                # Keep for backwards compatibility, redirects to filename search
+                results = mg_server.find_notes_by_filename_pattern(arguments["query"])
                 return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
             elif name == "get_backlinks":
