@@ -110,6 +110,13 @@ require("nvim-markdown-notes").setup {
 
 ## Memgraph Integration (Optional)
 
+> **TODO:** Extract the Memgraph integration to a separate repository. This includes:
+> - The Python bridge (`scripts/memgraph_bridge.py`)
+> - The MCP server (`mcp/memgraph_notes_server.py`)
+> - Graph-specific Lua modules (`lua/nvim-markdown-notes/graph/`)
+>
+> This repository should focus solely on the Neovim plugin functionality.
+
 The plugin supports optional integration with [Memgraph](https://memgraph.com/), an in-memory graph database, to create and query relationships between notes. This enables:
 
 - **Backlink queries** - Find all notes that link to the current note
@@ -121,8 +128,9 @@ The plugin supports optional integration with [Memgraph](https://memgraph.com/),
 
 1. **Memgraph** - Run via Docker:
    ```bash
-   docker run -p 7687:7687 memgraph/memgraph
+   docker run -p 7687:7687 -v memgraph-data:/var/lib/memgraph memgraph/memgraph
    ```
+   This creates a persistent volume `memgraph-data` so your graph survives restarts.
 
 2. **Python dependencies** - Install the Memgraph client:
    ```bash
