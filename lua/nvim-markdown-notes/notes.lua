@@ -50,7 +50,6 @@ M.get_file_path = function(root_path, relative_filename)
   local expected_path = vim.fn.resolve(vim.fn.expand(vim.fs.joinpath(root_path, name_lower)))
   local dir = vim.fs.dirname(expected_path)
   local name = vim.fs.basename(expected_path)
-  print("DEBUG: searching in " .. dir .. " for " .. name)
 
   -- Get all files in directory
   local files = vim.fs.find(function(filename)

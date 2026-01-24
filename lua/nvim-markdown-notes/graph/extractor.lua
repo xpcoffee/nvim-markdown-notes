@@ -8,11 +8,12 @@ M.opts = nil
 --- Get the text content of a child node by type
 ---@param node TSNode
 ---@param child_type string
+---@param bufnr number
 ---@return string | nil
-local function get_child_text(node, child_type)
+local function get_child_text(node, child_type, bufnr)
   for child in node:iter_children() do
     if child:type() == child_type then
-      return vim.treesitter.get_node_text(child, 0)
+      return vim.treesitter.get_node_text(child, bufnr)
     end
   end
   return nil
@@ -54,7 +55,7 @@ function M.extract_wikilinks(bufnr)
     -- Traverse tree looking for wikilink nodes
     local function traverse(node)
       if node:type() == "wikilink" then
-        local link_text = get_child_text(node, "link_text")
+        local link_text = get_child_text(node, "link_text", bufnr)
         if link_text then
           local start_row = node:range()
           -- Resolve the target path
@@ -121,7 +122,7 @@ function M.extract_mentions(bufnr)
 
     local function traverse(node)
       if node:type() == "mention" then
-        local mention_text = get_child_text(node, "mention_text")
+        local mention_text = get_child_text(node, "mention_text", bufnr)
         if mention_text then
           local start_row = node:range()
           table.insert(mentions, {
@@ -176,7 +177,7 @@ function M.extract_hashtags(bufnr)
 
     local function traverse(node)
       if node:type() == "hashtag" then
-        local tag_text = get_child_text(node, "hashtag_text")
+        local tag_text = get_child_text(node, "hashtag_text", bufnr)
         if tag_text then
           local start_row = node:range()
           table.insert(hashtags, {
@@ -248,14 +249,23 @@ function M.extract_from_file(filepath)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
 
-  -- Force treesitter parse
+  -- Force treesitter parse and wait for injections
   local ok, parser = pcall(vim.treesitter.get_parser, buf, "markdown")
   if ok and parser then
-    parser:parse(true)
-  end
+    -- Parse multiple times to ensure injections are created
+    -- First parse creates the tree, subsequent parses activate injections
+    for _ = 1, 3 do
+      parser:parse(true)
+    end
 
-  -- Small delay to let injections activate
-  vim.wait(50, function() return false end)
+    -- Check if markdown_notes injection is available
+    local children = parser:children() or {}
+    if not children["markdown_notes"] then
+      -- Try to manually register the injection region if needed
+      -- This handles cases where the injection wasn't automatically detected
+      parser:parse(true)
+    end
+  end
 
   local entities = M.extract_all(buf)
   entities.title = title

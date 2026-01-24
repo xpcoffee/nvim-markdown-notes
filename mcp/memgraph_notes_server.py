@@ -18,7 +18,9 @@ Environment variables:
 import asyncio
 import json
 import os
+import re
 import sys
+import glob
 from typing import Any, Optional
 from pathlib import Path
 
@@ -250,6 +252,200 @@ class MemgraphNotesServer:
         except Exception as e:
             return f"Error reading note: {e}"
 
+    def extract_from_file(self, filepath: str) -> dict:
+        """Extract wikilinks, mentions, and hashtags from a markdown file."""
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+        except Exception as e:
+            return {
+                'path': filepath,
+                'title': Path(filepath).stem,
+                'content': '',
+                'wikilinks': [],
+                'mentions': [],
+                'hashtags': []
+            }
+
+        lines = content.split('\n')
+        title = lines[0] if lines else Path(filepath).stem
+        title = re.sub(r'^#+ ', '', title)  # Remove heading prefix
+
+        wikilinks = []
+        mentions = []
+        hashtags = []
+
+        for line_num, line in enumerate(lines, 1):
+            # Wikilinks: [[target]] or [[target|alias]]
+            for match in re.finditer(r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]', line):
+                link_text = match.group(1)
+                target_path = os.path.join(self.notes_root, link_text + '.md')
+                wikilinks.append({
+                    'target': link_text,
+                    'target_path': target_path,
+                    'line_number': line_num
+                })
+
+            # Mentions: @person-name (allow hyphens and underscores)
+            for match in re.finditer(r'@([a-zA-Z][a-zA-Z0-9_-]*)', line):
+                name = match.group(1)
+                end_pos = match.end()
+                rest_of_line = line[end_pos:]
+                # Skip if this is part of an email
+                if rest_of_line.startswith(('@', '.com', '.co', '.org', '.io', '.nl', '.uk')):
+                    continue
+                mentions.append({
+                    'name': name,
+                    'line_number': line_num
+                })
+
+            # Hashtags: #tag
+            for match in re.finditer(r'(?<![/=])#([a-zA-Z][a-zA-Z0-9_-]*)', line):
+                tag = match.group(1)
+                if tag not in ['gid', 'browse', 'edit', 'resource']:
+                    hashtags.append({
+                        'name': tag,
+                        'line_number': line_num
+                    })
+
+        return {
+            'path': filepath,
+            'title': title,
+            'content': content,
+            'wikilinks': wikilinks,
+            'mentions': mentions,
+            'hashtags': hashtags
+        }
+
+    def reindex_all_notes(self) -> dict:
+        """Reindex all notes in the notes_root directory."""
+        # Find all markdown files
+        md_files = glob.glob(os.path.join(self.notes_root, '**/*.md'), recursive=True)
+
+        # Clear the graph
+        self.query("MATCH (n) DETACH DELETE n")
+
+        # Create indexes
+        index_queries = [
+            "CREATE INDEX ON :Note(path)",
+            "CREATE INDEX ON :Note(filename)",
+            "CREATE INDEX ON :Person(name)",
+            "CREATE INDEX ON :Tag(name)",
+        ]
+        for q in index_queries:
+            try:
+                self.query(q)
+            except Exception:
+                pass  # Index might already exist
+
+        # Extract and index each file
+        indexed = 0
+        errors = []
+
+        for filepath in md_files:
+            try:
+                note = self.extract_from_file(filepath)
+                self._index_note(note)
+                indexed += 1
+            except Exception as e:
+                errors.append({"path": filepath, "error": str(e)})
+
+        return {
+            "indexed": indexed,
+            "total": len(md_files),
+            "errors": errors
+        }
+
+    def _index_note(self, note: dict):
+        """Index a single note into the graph."""
+        import hashlib
+        from datetime import datetime
+
+        path = note['path']
+        title = note['title']
+        content = note['content']
+        wikilinks = note.get('wikilinks', [])
+        mentions = note.get('mentions', [])
+        hashtags = note.get('hashtags', [])
+
+        filename = os.path.basename(path)
+        content_hash = hashlib.md5(content.encode()).hexdigest()
+        last_modified = datetime.now().isoformat()
+
+        # Create/update note node
+        self.query("""
+            MERGE (n:Note {path: $path})
+            SET n.title = $title,
+                n.filename = $filename,
+                n.content_hash = $content_hash,
+                n.last_modified = $last_modified
+        """, {
+            "path": path,
+            "title": title,
+            "filename": filename,
+            "content_hash": content_hash,
+            "last_modified": last_modified
+        })
+
+        # Create wikilink relationships
+        for link in wikilinks:
+            target_path = link.get('target_path')
+            line_number = link.get('line_number', 0)
+            if target_path:
+                self.query("""
+                    MATCH (source:Note {path: $source_path})
+                    MERGE (target:Note {path: $target_path})
+                    MERGE (source)-[r:LINKS_TO {line_number: $line_number}]->(target)
+                """, {
+                    "source_path": path,
+                    "target_path": target_path,
+                    "line_number": line_number
+                })
+
+        # Create mention relationships
+        for mention in mentions:
+            person_name = mention.get('name')
+            line_number = mention.get('line_number', 0)
+            if person_name:
+                self.query("""
+                    MATCH (source:Note {path: $source_path})
+                    MERGE (person:Person {name: $person_name})
+                    MERGE (source)-[r:MENTIONS {line_number: $line_number}]->(person)
+                """, {
+                    "source_path": path,
+                    "person_name": person_name,
+                    "line_number": line_number
+                })
+
+        # Create hashtag relationships
+        for tag in hashtags:
+            tag_name = tag.get('name')
+            line_number = tag.get('line_number', 0)
+            if tag_name:
+                self.query("""
+                    MATCH (source:Note {path: $source_path})
+                    MERGE (tag:Tag {name: $tag_name})
+                    MERGE (source)-[r:HAS_TAG {line_number: $line_number}]->(tag)
+                """, {
+                    "source_path": path,
+                    "tag_name": tag_name,
+                    "line_number": line_number
+                })
+
+        # Check if this is a person note (in people directory)
+        if "/people/" in path:
+            person_name = os.path.splitext(filename)[0]
+            self.query("""
+                MERGE (person:Person {name: $person_name})
+                SET person.display_name = $person_name
+                WITH person
+                MATCH (note:Note {path: $path})
+                MERGE (person)-[:HAS_NOTE]->(note)
+            """, {
+                "person_name": person_name,
+                "path": path
+            })
+
 
 def create_server(mg_server: MemgraphNotesServer) -> Server:
     """Create the MCP server with tools and resources."""
@@ -384,6 +580,14 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
                     "properties": {}
                 }
             ),
+            Tool(
+                name="reindex_notes",
+                description="Reindex all notes from the notes directory into the graph database. This clears the existing graph and rebuilds it from scratch.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {}
+                }
+            ),
         ]
 
     @server.call_tool()
@@ -430,6 +634,10 @@ def create_server(mg_server: MemgraphNotesServer) -> Server:
 
             elif name == "get_graph_stats":
                 results = mg_server.get_graph_stats()
+                return [TextContent(type="text", text=json.dumps(results, indent=2))]
+
+            elif name == "reindex_notes":
+                results = mg_server.reindex_all_notes()
                 return [TextContent(type="text", text=json.dumps(results, indent=2))]
 
             else:
