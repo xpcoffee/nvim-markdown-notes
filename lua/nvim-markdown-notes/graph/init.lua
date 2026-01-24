@@ -45,6 +45,85 @@ function M.get_query()
   return get_query()
 end
 
+--- Get the commands module
+---@return table
+function M.get_commands()
+  return get_commands()
+end
+
+-- ===========================================
+-- PRIMARY NAVIGATION EXPORTS
+-- These are the recommended entry points for
+-- searching and navigating notes via the graph.
+-- ===========================================
+
+--- Browse all tags (PRIMARY - use before full-text search)
+--- Opens a Telescope picker with all tags sorted by usage
+function M.browse_tags()
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().browse_tags()
+end
+
+--- Browse all people (PRIMARY - use before full-text search)
+--- Opens a Telescope picker with all people sorted by mention count
+function M.browse_people()
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().browse_people()
+end
+
+--- Find notes by tag (PRIMARY)
+---@param tag string Tag name (with or without #)
+function M.find_by_tag(tag)
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().show_tagged(tag)
+end
+
+--- Find notes mentioning a person (PRIMARY)
+---@param person string Person name (with or without @)
+function M.find_by_mention(person)
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().show_mentions(person)
+end
+
+--- Show backlinks to current note
+function M.show_backlinks()
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().show_backlinks()
+end
+
+--- Show notes related to current note
+function M.show_related()
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().show_related()
+end
+
+--- Reindex all notes
+function M.reindex()
+  if not M.is_connected() then
+    vim.notify("[Memgraph] Not connected to graph database", vim.log.levels.WARN)
+    return
+  end
+  get_commands().reindex()
+end
+
 --- Setup the graph module
 ---@param opts MarkdownNotesFullOpts
 function M.setup(opts)

@@ -21,6 +21,51 @@ M.register_wikilink_cmp_source = nvim_cmp_source.register_cmp_source
 -- export graph module
 M.graph = graph
 
+-- ===========================================
+-- GRAPH-POWERED NAVIGATION (when memgraph enabled)
+-- These are the PRIMARY search/navigation methods.
+-- Use these BEFORE resorting to full-text search.
+-- ===========================================
+
+--- Browse all tags via graph (PRIMARY NAVIGATION)
+--- Use this for topic-based searching - more efficient than full-text
+M.graph_browse_tags = function()
+  graph.browse_tags()
+end
+
+--- Browse all people via graph (PRIMARY NAVIGATION)
+--- Use this for person-related searching - more efficient than full-text
+M.graph_browse_people = function()
+  graph.browse_people()
+end
+
+--- Find notes by tag via graph (PRIMARY SEARCH)
+---@param tag string Tag name (with or without #)
+M.graph_find_by_tag = function(tag)
+  graph.find_by_tag(tag)
+end
+
+--- Find notes mentioning a person via graph (PRIMARY SEARCH)
+---@param person string Person name (with or without @)
+M.graph_find_by_mention = function(person)
+  graph.find_by_mention(person)
+end
+
+--- Show backlinks to current note
+M.graph_backlinks = function()
+  graph.show_backlinks()
+end
+
+--- Show notes related to current note (shared tags/mentions)
+M.graph_related = function()
+  graph.show_related()
+end
+
+--- Reindex all notes into the graph
+M.graph_reindex = function()
+  graph.reindex()
+end
+
 --- custom jump-to-definition for my notes
 M.custom_jump_to_tag = function()
 	local bufnr = vim.api.nvim_get_current_buf()

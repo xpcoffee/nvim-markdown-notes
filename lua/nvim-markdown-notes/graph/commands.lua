@@ -335,6 +335,130 @@ function M.show_mentions(person)
   end)
 end
 
+--- Open Telescope picker to browse all tags
+--- This is a PRIMARY navigation method - use before full-text search
+function M.browse_tags()
+  if not check_connection() then
+    return
+  end
+
+  local query = get_query()
+  query.get_all_tags(function(success, tags, err)
+    if not success then
+      vim.notify("[Memgraph] Query failed: " .. error_to_string(err), vim.log.levels.ERROR)
+      return
+    end
+
+    if #tags == 0 then
+      vim.notify("[Memgraph] No tags found in graph", vim.log.levels.INFO)
+      return
+    end
+
+    vim.schedule(function()
+      pickers.new({}, {
+        prompt_title = "Browse Tags (select to find notes)",
+        finder = finders.new_table({
+          results = tags,
+          entry_maker = function(entry)
+            local display = string.format("#%-20s (%d notes)", entry.name, entry.count)
+            return {
+              value = entry,
+              display = display,
+              ordinal = entry.name,
+            }
+          end,
+        }),
+        sorter = conf.generic_sorter({}),
+        attach_mappings = function(prompt_bufnr, _)
+          actions.select_default:replace(function()
+            actions.close(prompt_bufnr)
+            local selection = action_state.get_selected_entry()
+            if selection and selection.value then
+              -- Show notes with this tag
+              M.show_tagged(selection.value.name)
+            end
+          end)
+          return true
+        end,
+      }):find()
+    end)
+  end)
+end
+
+--- Open Telescope picker to browse all people
+--- This is a PRIMARY navigation method - use before full-text search
+function M.browse_people()
+  if not check_connection() then
+    return
+  end
+
+  local query = get_query()
+  query.get_all_persons(function(success, persons, err)
+    if not success then
+      vim.notify("[Memgraph] Query failed: " .. error_to_string(err), vim.log.levels.ERROR)
+      return
+    end
+
+    if #persons == 0 then
+      vim.notify("[Memgraph] No people found in graph", vim.log.levels.INFO)
+      return
+    end
+
+    vim.schedule(function()
+      pickers.new({}, {
+        prompt_title = "Browse People (select to find notes)",
+        finder = finders.new_table({
+          results = persons,
+          entry_maker = function(entry)
+            local display = string.format("@%-25s (%d mentions)", entry.name, entry.mention_count or 0)
+            if entry.note_path then
+              display = display .. " [has note]"
+            end
+            return {
+              value = entry,
+              display = display,
+              ordinal = entry.name .. " " .. (entry.display_name or ""),
+              filename = entry.note_path, -- If person has a dedicated note
+            }
+          end,
+        }),
+        previewer = conf.grep_previewer({}),
+        sorter = conf.generic_sorter({}),
+        attach_mappings = function(prompt_bufnr, map)
+          actions.select_default:replace(function()
+            actions.close(prompt_bufnr)
+            local selection = action_state.get_selected_entry()
+            if selection and selection.value then
+              -- Show notes mentioning this person
+              M.show_mentions(selection.value.name)
+            end
+          end)
+          -- Alternative: open person's note directly with <C-o>
+          map("i", "<C-o>", function()
+            local selection = action_state.get_selected_entry()
+            if selection and selection.filename then
+              actions.close(prompt_bufnr)
+              vim.cmd("edit " .. vim.fn.fnameescape(selection.filename))
+            else
+              vim.notify("This person has no dedicated note", vim.log.levels.INFO)
+            end
+          end)
+          map("n", "<C-o>", function()
+            local selection = action_state.get_selected_entry()
+            if selection and selection.filename then
+              actions.close(prompt_bufnr)
+              vim.cmd("edit " .. vim.fn.fnameescape(selection.filename))
+            else
+              vim.notify("This person has no dedicated note", vim.log.levels.INFO)
+            end
+          end)
+          return true
+        end,
+      }):find()
+    end)
+  end)
+end
+
 --- Show note context (all relationships)
 function M.show_context()
   if not check_connection() then
@@ -398,6 +522,75 @@ end
 
 --- Register user commands
 function M.register_commands()
+  -- ===========================================
+  -- PRIMARY NAVIGATION (use these first!)
+  -- ===========================================
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphTags", function()
+    M.browse_tags()
+  end, { desc = "[PRIMARY] Browse all tags - use this for topic-based navigation" })
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphPeople", function()
+    M.browse_people()
+  end, { desc = "[PRIMARY] Browse all people - use this to find person-related notes" })
+
+  -- ===========================================
+  -- CONTEXTUAL NAVIGATION (for current note)
+  -- ===========================================
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphBacklinks", function()
+    M.show_backlinks()
+  end, { desc = "Show notes linking to current note" })
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphRelated", function()
+    M.show_related()
+  end, { desc = "Show notes related to current note (shared tags/mentions)" })
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphContext", function()
+    M.show_context()
+  end, { desc = "Show all relationships for current note" })
+
+  -- ===========================================
+  -- DIRECT SEARCH (when you know what you want)
+  -- ===========================================
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphTagged", function(opts)
+    if opts.args and opts.args ~= "" then
+      M.show_tagged(opts.args)
+    else
+      -- If no arg provided, open the tag browser
+      M.browse_tags()
+    end
+  end, {
+    nargs = "?",
+    desc = "Show notes with a specific tag (or browse tags if no arg)",
+    complete = function(arg_lead)
+      -- Provide tag completion if connected
+      local connection = get_connection()
+      if not connection.is_connected() then
+        return {}
+      end
+      -- Note: This is synchronous, might want to cache tags
+      return {}
+    end,
+  })
+
+  vim.api.nvim_create_user_command("MarkdownNotesGraphMentions", function(opts)
+    if opts.args and opts.args ~= "" then
+      M.show_mentions(opts.args)
+    else
+      -- If no arg provided, open the people browser
+      M.browse_people()
+    end
+  end, {
+    nargs = "?",
+    desc = "Show notes mentioning a person (or browse people if no arg)",
+  })
+
+  -- ===========================================
+  -- GRAPH MANAGEMENT
+  -- ===========================================
+
   vim.api.nvim_create_user_command("MarkdownNotesGraphStatus", function()
     M.show_status()
   end, { desc = "Show Memgraph connection status and stats" })
@@ -409,44 +602,6 @@ function M.register_commands()
   vim.api.nvim_create_user_command("MarkdownNotesGraphReindex", function()
     M.reindex()
   end, { desc = "Rebuild entire graph from all notes" })
-
-  vim.api.nvim_create_user_command("MarkdownNotesGraphBacklinks", function()
-    M.show_backlinks()
-  end, { desc = "Show notes linking to current note" })
-
-  vim.api.nvim_create_user_command("MarkdownNotesGraphRelated", function()
-    M.show_related()
-  end, { desc = "Show notes related to current note" })
-
-  vim.api.nvim_create_user_command("MarkdownNotesGraphTagged", function(opts)
-    if opts.args and opts.args ~= "" then
-      M.show_tagged(opts.args)
-    else
-      vim.notify("Usage: :MarkdownNotesGraphTagged <tag>", vim.log.levels.WARN)
-    end
-  end, {
-    nargs = "?",
-    desc = "Show notes with a specific tag",
-    complete = function()
-      -- Could add tag completion here
-      return {}
-    end,
-  })
-
-  vim.api.nvim_create_user_command("MarkdownNotesGraphMentions", function(opts)
-    if opts.args and opts.args ~= "" then
-      M.show_mentions(opts.args)
-    else
-      vim.notify("Usage: :MarkdownNotesGraphMentions <person>", vim.log.levels.WARN)
-    end
-  end, {
-    nargs = "?",
-    desc = "Show notes mentioning a person",
-  })
-
-  vim.api.nvim_create_user_command("MarkdownNotesGraphContext", function()
-    M.show_context()
-  end, { desc = "Show all relationships for current note" })
 
   vim.api.nvim_create_user_command("MarkdownNotesGraphConnect", function()
     local connection = get_connection()

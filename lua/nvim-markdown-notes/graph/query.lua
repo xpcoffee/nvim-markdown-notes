@@ -243,8 +243,9 @@ end
 function M.get_all_tags(callback)
   local cypher = [[
     MATCH (t:Tag)<-[r:HAS_TAG]-()
-    RETURN t.name AS name, count(r) AS usage_count
-    ORDER BY usage_count DESC, t.name
+    WITH t.name AS name, count(r) AS usage_count
+    RETURN name, usage_count
+    ORDER BY usage_count DESC, name
   ]]
 
   M.run_cypher(cypher, {}, function(success, results, err)
@@ -270,8 +271,9 @@ function M.get_all_persons(callback)
     MATCH (p:Person)
     OPTIONAL MATCH (p)<-[r:MENTIONS]-()
     OPTIONAL MATCH (p)-[:HAS_NOTE]->(note:Note)
-    RETURN p.name AS name, p.display_name AS display_name, count(r) AS mention_count, note.path AS note_path
-    ORDER BY mention_count DESC, p.name
+    WITH p.name AS name, p.display_name AS display_name, count(r) AS mention_count, note.path AS note_path
+    RETURN name, display_name, mention_count, note_path
+    ORDER BY mention_count DESC, name
   ]]
 
   M.run_cypher(cypher, {}, function(success, results, err)
