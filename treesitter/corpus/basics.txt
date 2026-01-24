@@ -1,0 +1,30 @@
+=== simple wikilink ===
+[[note]]
+---
+(source_file (wikilink (link_text)))
+
+=== wikilink with spaces ===
+[[my note]]
+---
+(source_file (wikilink (link_text)))
+
+=== mention ===
+@person
+---
+(source_file (mention (mention_text)))
+
+=== hashtag ===
+#project
+---
+(source_file (hashtag (hashtag_text)))
+
+=== mixed content ===
+See [[docs]] and @alice about #project
+---
+(source_file
+  (text)
+  (wikilink (link_text))
+  (text)
+  (mention (mention_text))
+  (text)
+  (hashtag (hashtag_text)))

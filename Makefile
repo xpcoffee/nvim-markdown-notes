@@ -1,4 +1,4 @@
-.PHONY: all clean parser test
+.PHONY: all clean parser test test-grammar test-unit test-integration
 
 # Detect OS
 UNAME_S := $(shell uname -s)
@@ -44,10 +44,23 @@ parser: generate
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PARSER_OUT) $(SRC_DIR)/parser.c
 	@echo "Parser compiled to $(PARSER_OUT)"
 
-# Test the grammar
-test:
-	@echo "Testing grammar..."
-	@cd $(GRAMMAR_DIR) && echo "[[test link]]" | tree-sitter parse
+# Run all CI-safe tests (grammar + unit)
+test: test-grammar test-unit
+
+# Test the grammar using tree-sitter corpus tests
+test-grammar:
+	@echo "Running grammar corpus tests..."
+	@cd $(GRAMMAR_DIR) && tree-sitter test
+
+# Run unit tests (stubbed dependencies, CI-safe)
+test-unit:
+	@echo "Running unit tests..."
+	@./tests/run_tests.sh
+
+# Run integration tests (requires real nvim config with telescope)
+test-integration:
+	@echo "Running integration tests..."
+	@./tests/run_integration_tests.sh
 
 # Clean generated files
 clean:
