@@ -8,6 +8,7 @@ local notes = require("nvim-markdown-notes.notes")
 local wikilink = require("nvim-markdown-notes.wikilink")
 local mentions = require("nvim-markdown-notes.mentions")
 local weblink = require("nvim-markdown-notes.weblink")
+local graph = require("nvim-markdown-notes.graph")
 
 -- export functions from modules
 M.list_all_tags = tags.list_all_tags
@@ -16,6 +17,9 @@ M.open_daily_journal = journal.open_daily_journal
 M.open_journal = journal.open_journal
 M.create_note = notes.create_top_level_note
 M.register_wikilink_cmp_source = nvim_cmp_source.register_cmp_source
+
+-- export graph module
+M.graph = graph
 
 --- custom jump-to-definition for my notes
 M.custom_jump_to_tag = function()
@@ -55,6 +59,7 @@ M.setup = function(opts)
 	mentions.setup(options)
 	weblink.setup(options)
 	custom_parser.setup(options)
+	graph.setup(options)
 
 	-- Set up highlight groups for markdown_notes treesitter captures
 	for group, settings in pairs(options.highlights) do
@@ -71,6 +76,21 @@ M.setup = function(opts)
 			vim.keymap.set("n", "<C-]>", M.custom_jump_to_tag, { buffer = true, desc = "Follow note link" })
 		end,
 	})
+
+	-- Auto-sync to graph on save if enabled
+	if options.memgraph.enabled and options.memgraph.auto_sync then
+		vim.api.nvim_create_autocmd("BufWritePost", {
+			group = "MarkdownNotes",
+			pattern = "*.md",
+			callback = function(args)
+				-- Only sync files within notes_root_path
+				local filepath = args.file
+				if filepath and filepath:find(options.notes_root_path, 1, true) then
+					graph.get_sync().update_note(filepath)
+				end
+			end,
+		})
+	end
 end
 
 return M

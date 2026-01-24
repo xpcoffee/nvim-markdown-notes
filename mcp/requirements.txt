@@ -1,0 +1,8 @@
+# MCP Server for Memgraph Notes
+# Install with: pip install -r requirements.txt
+
+# MCP SDK for Model Context Protocol
+mcp>=1.0.0
+
+# Memgraph Python client (Bolt protocol)
+pymgclient>=1.3.0
