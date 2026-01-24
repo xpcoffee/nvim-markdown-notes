@@ -13,6 +13,26 @@
 ---
 (source_file (mention (mention_text)))
 
+=== mention with diacritics ===
+@andré
+---
+(source_file (mention (mention_text)))
+
+=== mention with polish characters ===
+@sławomir
+---
+(source_file (mention (mention_text)))
+
+=== mention with cyrillic ===
+@борис
+---
+(source_file (mention (mention_text)))
+
+=== email is not a mention ===
+hello@gmail.com
+---
+(source_file (text))
+
 === hashtag ===
 #project
 ---
