@@ -23,25 +23,17 @@ npm install -g tree-sitter-cli
 
 TODO: build using CI and download the grammar .so file during installation.
 
-### Optional: Automated Docker Management
+### Optional: Memgraph graph database
 
-For Memgraph integration, you can optionally install the [`nvim-markdown-notes-memgraph`](https://github.com/xpcoffee/nvim-markdown-notes-memgraph) CLI tool. This provides automatic Docker Compose orchestration for Memgraph and the MCP server:
+For graph database features (backlinks, related notes, AI access via MCP), install the [`nvim-markdown-notes-memgraph`](https://github.com/xpcoffee/nvim-markdown-notes-memgraph) CLI. This requires Docker and Docker Compose.
 
 ```bash
-# Install via pip
 pip install nvim-markdown-notes-memgraph
-
-# Or install from git
-pip install git+https://github.com/xpcoffee/nvim-markdown-notes-memgraph.git
 ```
 
-**Benefits:**
-- Automatic startup/shutdown of Memgraph and MCP server containers
-- No manual Docker commands needed
-- Simplified configuration
-- Health checking and status monitoring
+The CLI manages Memgraph and MCP server containers via Docker Compose. See the [CLI README](https://github.com/xpcoffee/nvim-markdown-notes-memgraph) for full documentation.
 
-**Note:** The plugin works without the CLI - you can manually manage Docker containers or use the bundled scripts. The CLI simply provides convenience and automation.
+Alternatively, if you enable `memgraph` in the plugin config and the CLI is not installed, the plugin will prompt you to install it automatically.
 
 ## Installation
 
@@ -130,91 +122,51 @@ require("nvim-markdown-notes").setup {
 
 ## Memgraph Integration (Optional)
 
-> **Note:** The Memgraph backend and MCP server are now available as a standalone CLI tool: [`nvim-markdown-notes-memgraph`](https://github.com/xpcoffee/nvim-markdown-notes-memgraph). This provides automatic Docker Compose orchestration and simplifies setup. The bundled scripts in this repository are maintained for backwards compatibility.
-
-The plugin supports optional integration with [Memgraph](https://memgraph.com/), an in-memory graph database, to create and query relationships between notes. This enables:
+The plugin supports optional integration with [Memgraph](https://memgraph.com/) via the [`nvim-markdown-notes-memgraph`](https://github.com/xpcoffee/nvim-markdown-notes-memgraph) CLI. This enables:
 
 - **Backlink queries** - Find all notes that link to the current note
 - **Related notes** - Discover notes sharing tags or mentions
 - **Graph exploration** - Query the knowledge graph with Cypher
 - **AI access** - Expose your note graph to AI assistants via MCP
 
-### Prerequisites
+### Setup
 
-You have two options for running Memgraph:
+1. Install the CLI (requires Docker and Docker Compose):
 
-**Option A: Using the CLI tool (Recommended)**
-
-1. Install the `nvim-markdown-notes-memgraph` CLI:
    ```bash
    pip install nvim-markdown-notes-memgraph
    ```
 
-2. Start services with automatic Docker management:
-   ```bash
-   nvim-markdown-notes-memgraph start --notes-root ~/notes
+   Or enable `memgraph.enabled = true` in your plugin config and the plugin will offer to install it for you.
+
+2. Enable in your Neovim config:
+
+   ```lua
+   require("nvim-markdown-notes").setup {
+     notes_root_path = "~/notes",
+     memgraph = {
+       enabled = true,           -- Enable graph integration
+       host = "localhost",       -- Memgraph host (default)
+       port = 7687,              -- Memgraph Bolt port (default)
+       auto_sync = true,         -- Sync notes on save (default)
+       sync_debounce = 500,      -- Debounce rapid saves in ms (default)
+     },
+   }
    ```
 
-The CLI automatically manages Memgraph, the MCP server, and all dependencies via Docker Compose.
-
-**Option B: Manual Docker setup**
-
-1. **Memgraph** - Run via Docker:
-   ```bash
-   docker run -p 7687:7687 -v memgraph-data:/var/lib/memgraph memgraph/memgraph
-   ```
-   This creates a persistent volume `memgraph-data` so your graph survives restarts.
-
-2. **Python dependencies** - Install the Memgraph client:
-   ```bash
-   pip install pymgclient
-   ```
-
-### Configuration
-
-Enable Memgraph in your setup:
-
-```lua
-require("nvim-markdown-notes").setup {
-  notes_root_path = "~/notes",
-  memgraph = {
-    enabled = true,           -- Enable graph integration
-    host = "localhost",       -- Memgraph host
-    port = 7687,              -- Memgraph Bolt port
-    auto_sync = true,         -- Sync notes on save
-    sync_debounce = 500,      -- Debounce rapid saves (ms)
-  },
-}
-```
+The plugin automatically starts services and connects when Neovim opens. See the [CLI README](https://github.com/xpcoffee/nvim-markdown-notes-memgraph) for CLI commands (`start`, `stop`, `status`) and troubleshooting.
 
 ### Graph Commands
-
-**Primary Navigation (use these for searching):**
 
 | Command | Description |
 |---------|-------------|
 | `:MarkdownNotesGraphTags` | Browse all tags with usage counts |
 | `:MarkdownNotesGraphPeople` | Browse all people with mention counts |
-
-**Contextual Navigation (for current note):**
-
-| Command | Description |
-|---------|-------------|
 | `:MarkdownNotesGraphBacklinks` | Notes linking to current note |
 | `:MarkdownNotesGraphRelated` | Notes sharing tags/mentions with current note |
 | `:MarkdownNotesGraphContext` | Show all relationships for current note |
-
-**Direct Search:**
-
-| Command | Description |
-|---------|-------------|
 | `:MarkdownNotesGraphTagged [tag]` | Notes with specific tag (or browse if no arg) |
 | `:MarkdownNotesGraphMentions [person]` | Notes mentioning person (or browse if no arg) |
-
-**Management:**
-
-| Command | Description |
-|---------|-------------|
 | `:MarkdownNotesGraphStatus` | Show connection status and statistics |
 | `:MarkdownNotesGraphReindex` | Rebuild entire graph from all notes |
 | `:MarkdownNotesGraphSync` | Sync current buffer to graph |
@@ -225,20 +177,9 @@ require("nvim-markdown-notes").setup {
 ```lua
 local notes = require("nvim-markdown-notes")
 
--- Show backlinks to current note
-vim.keymap.set("n", "<leader>gb", function()
-  vim.cmd("MarkdownNotesGraphBacklinks")
-end)
-
--- Show related notes
-vim.keymap.set("n", "<leader>gr", function()
-  vim.cmd("MarkdownNotesGraphRelated")
-end)
-
--- Show note context (all relationships)
-vim.keymap.set("n", "<leader>gc", function()
-  vim.cmd("MarkdownNotesGraphContext")
-end)
+vim.keymap.set("n", "<leader>gb", function() vim.cmd("MarkdownNotesGraphBacklinks") end)
+vim.keymap.set("n", "<leader>gr", function() vim.cmd("MarkdownNotesGraphRelated") end)
+vim.keymap.set("n", "<leader>gc", function() vim.cmd("MarkdownNotesGraphContext") end)
 ```
 
 ### Lua API
@@ -260,7 +201,7 @@ For direct graph access:
 ```lua
 local graph = require("nvim-markdown-notes").graph
 
--- Primary navigation (Telescope pickers)
+-- Telescope pickers
 graph.browse_tags()                      -- All tags with counts
 graph.browse_people()                    -- All people with counts
 graph.find_by_tag("project")             -- Notes with tag
@@ -269,14 +210,7 @@ graph.show_backlinks()                   -- Backlinks to current note
 graph.show_related()                     -- Related notes
 
 -- Low-level query API (async callbacks)
-graph.get_query().find_backlinks(filepath, function(success, results, err)
-  if success then
-    for _, note in ipairs(results) do
-      print(note.title, note.path)
-    end
-  end
-end)
-
+graph.get_query().find_backlinks(filepath, callback)
 graph.get_query().find_by_tag("project", callback)
 graph.get_query().find_by_mention("john", callback)
 graph.get_query().get_all_tags(callback)
@@ -291,96 +225,15 @@ graph.get_sync().reindex_all()
 graph.is_connected()
 ```
 
-### Graph Schema
-
-The graph uses the following schema:
-
-```cypher
-// Nodes
-(:Note {path, title, filename, last_modified, content_hash})
-(:Person {name, display_name})
-(:Tag {name})
-
-// Relationships
-(:Note)-[:LINKS_TO {line_number}]->(:Note)      // wikilinks
-(:Note)-[:MENTIONS {line_number}]->(:Person)    // @mentions
-(:Note)-[:HAS_TAG {line_number}]->(:Tag)        // #hashtags
-(:Person)-[:HAS_NOTE]->(:Note)                  // people directory files
-```
-
 ### MCP Server for AI Access
 
-An MCP (Model Context Protocol) server is available for AI assistant integration.
-
-**Option A: Using the CLI tool (Recommended)**
-
-If you have the `nvim-markdown-notes-memgraph` CLI installed, generate the MCP configuration automatically:
+The CLI includes an MCP server for AI assistant integration. Generate the config:
 
 ```bash
 nvim-markdown-notes-memgraph config --notes-root ~/notes
 ```
 
-This outputs JSON you can add to your MCP client configuration (e.g., Claude Code's `claude_desktop_config.json`).
-
-**Option B: Using bundled scripts**
-
-An MCP server is included in this repository:
-
-```bash
-# Install dependencies
-pip install -r mcp/requirements.txt
-
-# Run the server
-NOTES_ROOT=~/notes python mcp/memgraph_notes_server.py
-```
-
-Configure in your MCP client (e.g., Claude Code):
-
-```json
-{
-  "mcpServers": {
-    "memgraph-notes": {
-      "command": "python",
-      "args": ["/path/to/nvim-markdown-notes/mcp/memgraph_notes_server.py"],
-      "env": {
-        "NOTES_ROOT": "/path/to/notes",
-        "MEMGRAPH_HOST": "localhost",
-        "MEMGRAPH_PORT": "7687"
-      }
-    }
-  }
-}
-```
-
-### MCP Search Strategy
-
-The MCP server provides a `get_search_instructions` tool that guides AI assistants on the optimal search order:
-
-1. **Tags** (`find_by_tag`) - Most efficient for topic-based searches
-2. **Date ranges** (`find_journals_by_date`) - For temporal queries on journals and date-prefixed notes
-3. **Mentions** (`find_by_mention`) - For person-related queries
-4. **Filename** (`find_by_filename`) - When you know part of the note's name
-5. **Graph exploration** (`get_backlinks`, `get_related`) - For connection-based discovery
-6. **Full-text search** (`search_content`) - Last resort, slower
-
-### Available MCP Tools
-
-| Tool | Priority | Description |
-|------|----------|-------------|
-| `get_search_instructions` | - | Returns the search strategy guide |
-| `find_by_tag` | 1 | Find notes with a hashtag |
-| `find_journals_by_date` | 2 | Find journals/notes by date range |
-| `find_by_mention` | 3 | Find notes mentioning a person |
-| `find_by_filename` | 4 | Search by filename/title pattern |
-| `get_backlinks` | 5 | Notes linking to a specific note |
-| `get_related` | 5 | Notes sharing tags/mentions |
-| `get_note_context` | 5 | All relationships for a note |
-| `search_content` | 6 | Full-text content search (last resort) |
-| `list_all_tags` | - | List all tags with counts |
-| `list_all_persons` | - | List all people with counts |
-| `query_graph` | - | Run raw Cypher queries |
-| `get_graph_stats` | - | Get graph statistics |
-| `reindex_notes` | - | Rebuild the graph from all notes |
+Add the output to your MCP client config (e.g., Claude Desktop). See the [CLI README](https://github.com/xpcoffee/nvim-markdown-notes-memgraph#mcp-integration) for available MCP tools and search strategy.
 
 ## Development - custom treesitter grammar
 

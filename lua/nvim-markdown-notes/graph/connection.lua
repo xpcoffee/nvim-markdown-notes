@@ -22,13 +22,6 @@ local callback_counter = 0
 ---@type string
 local response_buffer = ""
 
--- Helper to get plugin root directory
-local function get_plugin_root()
-  local source = debug.getinfo(1, "S").source:sub(2)
-  local plugin_root = vim.fn.fnamemodify(source, ":h:h:h:h")
-  return plugin_root
-end
-
 --- Parse a JSON response from the bridge
 ---@param line string
 ---@return table | nil
@@ -150,7 +143,7 @@ function M.ensure_services(callback)
     if M.opts and M.opts.debug_logging then
       vim.notify("[Memgraph] CLI not installed, skipping service startup", vim.log.levels.DEBUG)
     end
-    -- Skip silently - fallback to bundled scripts or manual setup
+    -- Skip silently - user needs to install CLI or manage services manually
     if callback then
       callback(true, "CLI not available, skipping service check", nil)
     end
@@ -209,31 +202,17 @@ function M.start(callback)
   local cmd
 
   -- Check if standalone CLI is available
-  if has_cli() then
-    -- Use the CLI bridge command
-    cmd = { "nvim-markdown-notes-memgraph", "bridge" }
-
-    if M.opts and M.opts.debug_logging then
-      vim.notify("[Memgraph] Using nvim-markdown-notes-memgraph CLI", vim.log.levels.INFO)
+  if not has_cli() then
+    if callback then
+      callback(false, "nvim-markdown-notes-memgraph CLI not found. Install with: pip install nvim-markdown-notes-memgraph")
     end
-  else
-    -- Fall back to bundled script
-    local plugin_root = get_plugin_root()
-    local script_path = vim.fs.joinpath(plugin_root, "scripts", "memgraph_bridge.py")
+    return
+  end
 
-    -- Check if script exists
-    if vim.fn.filereadable(script_path) == 0 then
-      if callback then
-        callback(false, "Bridge script not found: " .. script_path)
-      end
-      return
-    end
+  cmd = { "nvim-markdown-notes-memgraph", "bridge" }
 
-    cmd = { M.opts.memgraph.python_path, script_path }
-
-    if M.opts and M.opts.debug_logging then
-      vim.notify("[Memgraph] Using bundled bridge script", vim.log.levels.INFO)
-    end
+  if M.opts and M.opts.debug_logging then
+    vim.notify("[Memgraph] Using nvim-markdown-notes-memgraph CLI", vim.log.levels.INFO)
   end
 
   job_id = vim.fn.jobstart(cmd, {
