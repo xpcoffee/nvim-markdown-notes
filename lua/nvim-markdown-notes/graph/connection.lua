@@ -139,6 +139,54 @@ local function has_cli()
   return vim.fn.executable("nvim-markdown-notes-memgraph") == 1
 end
 
+--- Ensure services are running before connecting
+--- Starts the services via CLI if available, otherwise skips
+---@param callback function | nil Called with (success, message, error)
+function M.ensure_services(callback)
+  -- Check if CLI is installed
+  if not has_cli() then
+    if M.opts and M.opts.debug_logging then
+      vim.notify("[Memgraph] CLI not installed, skipping service startup", vim.log.levels.DEBUG)
+    end
+    -- Skip silently - fallback to bundled scripts or manual setup
+    if callback then
+      callback(true, "CLI not available, skipping service check", nil)
+    end
+    return
+  end
+
+  if M.opts and M.opts.debug_logging then
+    vim.notify("[Memgraph] Starting services via CLI...", vim.log.levels.INFO)
+  end
+
+  -- Start services using the CLI
+  vim.fn.jobstart(
+    { "nvim-markdown-notes-memgraph", "start" },
+    {
+      on_exit = function(_, exit_code, _)
+        if exit_code == 0 then
+          if M.opts and M.opts.debug_logging then
+            vim.notify("[Memgraph] Services started successfully", vim.log.levels.INFO)
+          end
+          if callback then
+            callback(true, "Services started", nil)
+          end
+        else
+          local err_msg = "Failed to start services (exit code: " .. exit_code .. ")"
+          if M.opts and M.opts.debug_logging then
+            vim.notify("[Memgraph] " .. err_msg, vim.log.levels.WARN)
+          end
+          if callback then
+            callback(false, nil, err_msg)
+          end
+        end
+      end,
+      stdout_buffered = true,
+      stderr_buffered = true,
+    }
+  )
+end
+
 --- Start the Python bridge process
 ---@param callback function | nil Called with (success, message)
 function M.start(callback)
@@ -303,42 +351,54 @@ function M.setup(opts)
   if opts.memgraph.enabled then
     -- Defer to allow other modules to load
     vim.defer_fn(function()
-      M.start(function(success, data, err)
-        if success then
+      -- First ensure services are running (if CLI is available)
+      M.ensure_services(function(service_success, service_msg, service_err)
+        if not service_success and service_err then
+          -- Service startup failed - log warning but continue with connection attempt
           if opts.debug_logging then
-            local msg = "Connected"
-            if type(data) == "table" and type(data.message) == "string" then
-              msg = data.message
-            end
-            vim.notify("[Memgraph] " .. msg, vim.log.levels.INFO)
-          end
-        else
-          local error_msg = "unknown error"
-          if type(err) == "string" then
-            error_msg = err
-          elseif type(data) == "string" then
-            error_msg = data
-          end
-
-          -- Check for common errors and provide helpful messages
-          if error_msg:match("mgclient not installed") then
-            vim.notify(
-              "[Memgraph] Python client not installed.\n" ..
-              "Install with: pip install pymgclient\n" ..
-              "Graph features will be disabled until installed.",
-              vim.log.levels.WARN
-            )
-          elseif error_msg:match("Failed to connect") or error_msg:match("Connection refused") then
-            vim.notify(
-              "[Memgraph] Could not connect to database.\n" ..
-              "Start Memgraph with: docker run -p 7687:7687 memgraph/memgraph\n" ..
-              "Graph features will be disabled until connected.",
-              vim.log.levels.WARN
-            )
-          else
-            vim.notify("[Memgraph] Connection failed: " .. error_msg, vim.log.levels.WARN)
+            vim.notify("[Memgraph] " .. (service_err or "Service startup error"), vim.log.levels.WARN)
           end
         end
+
+        -- Now start the bridge and connect
+        M.start(function(success, data, err)
+          if success then
+            if opts.debug_logging then
+              local msg = "Connected"
+              if type(data) == "table" and type(data.message) == "string" then
+                msg = data.message
+              end
+              vim.notify("[Memgraph] " .. msg, vim.log.levels.INFO)
+            end
+          else
+            local error_msg = "unknown error"
+            if type(err) == "string" then
+              error_msg = err
+            elseif type(data) == "string" then
+              error_msg = data
+            end
+
+            -- Check for common errors and provide helpful messages
+            if error_msg:match("mgclient not installed") then
+              vim.notify(
+                "[Memgraph] Python client not installed.\n" ..
+                "Install with: pip install pymgclient\n" ..
+                "Graph features will be disabled until installed.",
+                vim.log.levels.WARN
+              )
+            elseif error_msg:match("Failed to connect") or error_msg:match("Connection refused") then
+              vim.notify(
+                "[Memgraph] Could not connect to database.\n" ..
+                "Start Memgraph with: docker run -p 7687:7687 memgraph/memgraph\n" ..
+                "Or install CLI with: pip install nvim-markdown-notes-memgraph\n" ..
+                "Graph features will be disabled until connected.",
+                vim.log.levels.WARN
+              )
+            else
+              vim.notify("[Memgraph] Connection failed: " .. error_msg, vim.log.levels.WARN)
+            end
+          end
+        end)
       end)
     end, 500)
   end
