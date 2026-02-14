@@ -2,6 +2,20 @@
 """
 MCP Server for Memgraph Notes
 
+DEPRECATION NOTICE:
+    This bundled version is deprecated. Please use the standalone CLI package instead:
+
+        pip install nvim-markdown-notes-memgraph
+
+    The standalone package provides:
+    - Automatic Docker Compose orchestration
+    - Simplified setup and configuration
+    - Better integration with Claude Desktop and other MCP clients
+
+    See: https://github.com/xpcoffee/nvim-markdown-notes-memgraph
+
+    This file is kept for backwards compatibility only.
+
 This MCP server exposes the Memgraph graph database to AI assistants,
 allowing them to explore note relationships, find backlinks, and query
 the knowledge graph.

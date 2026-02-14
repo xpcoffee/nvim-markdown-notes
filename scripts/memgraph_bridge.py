@@ -2,6 +2,20 @@
 """
 Memgraph Bridge for nvim-markdown-notes
 
+DEPRECATION NOTICE:
+    This bundled version is deprecated. Please use the standalone CLI package instead:
+
+        pip install nvim-markdown-notes-memgraph
+
+    The standalone package provides:
+    - Automatic Docker Compose orchestration
+    - Simplified setup and configuration
+    - Better integration with Neovim and MCP clients
+
+    See: https://github.com/xpcoffee/nvim-markdown-notes-memgraph
+
+    This file is kept for backwards compatibility only.
+
 This script acts as a bridge between Neovim (Lua) and Memgraph database.
 It communicates via JSON over stdin/stdout and uses the Bolt protocol
 to connect to Memgraph.
