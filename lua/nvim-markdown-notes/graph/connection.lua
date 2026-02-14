@@ -2,6 +2,8 @@
 --- Manages the Python bridge process lifecycle for Memgraph communication
 local M = {}
 
+local installer = require("nvim-markdown-notes.graph.installer")
+
 ---@type MarkdownNotesFullOpts | nil
 M.opts = nil
 
@@ -351,8 +353,10 @@ function M.setup(opts)
   if opts.memgraph.enabled then
     -- Defer to allow other modules to load
     vim.defer_fn(function()
-      -- First ensure services are running (if CLI is available)
-      M.ensure_services(function(service_success, service_msg, service_err)
+      -- First try to install CLI if missing
+      installer.ensure_cli(opts.memgraph, function(_)
+        -- Then ensure services are running (if CLI is available)
+        M.ensure_services(function(service_success, service_msg, service_err)
         if not service_success and service_err then
           -- Service startup failed - log warning but continue with connection attempt
           if opts.debug_logging then
@@ -399,6 +403,7 @@ function M.setup(opts)
             end
           end
         end)
+      end)
       end)
     end, 500)
   end

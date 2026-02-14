@@ -140,6 +140,17 @@ function M.setup(opts)
       get_query().setup(opts)
       get_commands().setup(opts)
     end)
+
+    -- Manual install command
+    vim.api.nvim_create_user_command("MemgraphInstallCLI", function()
+      local installer = require("nvim-markdown-notes.graph.installer")
+      installer.reset_declined()
+      installer.ensure_cli(opts.memgraph, function(success)
+        if success then
+          vim.notify("[Memgraph] CLI is available", vim.log.levels.INFO)
+        end
+      end)
+    end, { desc = "Install the Memgraph CLI tool" })
   end
 end
 
