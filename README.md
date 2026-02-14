@@ -23,6 +23,26 @@ npm install -g tree-sitter-cli
 
 TODO: build using CI and download the grammar .so file during installation.
 
+### Optional: Automated Docker Management
+
+For Memgraph integration, you can optionally install the [`nvim-markdown-notes-memgraph`](https://github.com/xpcoffee/nvim-markdown-notes-memgraph) CLI tool. This provides automatic Docker Compose orchestration for Memgraph and the MCP server:
+
+```bash
+# Install via pip
+pip install nvim-markdown-notes-memgraph
+
+# Or install from git
+pip install git+https://github.com/xpcoffee/nvim-markdown-notes-memgraph.git
+```
+
+**Benefits:**
+- Automatic startup/shutdown of Memgraph and MCP server containers
+- No manual Docker commands needed
+- Simplified configuration
+- Health checking and status monitoring
+
+**Note:** The plugin works without the CLI - you can manually manage Docker containers or use the bundled scripts. The CLI simply provides convenience and automation.
+
 ## Installation
 
 Install with your favorite Neovim plugin manager. Example using [lazy.nvim](https://github.com/folke/lazy.nvim):
@@ -110,12 +130,7 @@ require("nvim-markdown-notes").setup {
 
 ## Memgraph Integration (Optional)
 
-> **TODO:** Extract the Memgraph integration to a separate repository. This includes:
-> - The Python bridge (`scripts/memgraph_bridge.py`)
-> - The MCP server (`mcp/memgraph_notes_server.py`)
-> - Graph-specific Lua modules (`lua/nvim-markdown-notes/graph/`)
->
-> This repository should focus solely on the Neovim plugin functionality.
+> **Note:** The Memgraph backend and MCP server are now available as a standalone CLI tool: [`nvim-markdown-notes-memgraph`](https://github.com/xpcoffee/nvim-markdown-notes-memgraph). This provides automatic Docker Compose orchestration and simplifies setup. The bundled scripts in this repository are maintained for backwards compatibility.
 
 The plugin supports optional integration with [Memgraph](https://memgraph.com/), an in-memory graph database, to create and query relationships between notes. This enables:
 
@@ -125,6 +140,24 @@ The plugin supports optional integration with [Memgraph](https://memgraph.com/),
 - **AI access** - Expose your note graph to AI assistants via MCP
 
 ### Prerequisites
+
+You have two options for running Memgraph:
+
+**Option A: Using the CLI tool (Recommended)**
+
+1. Install the `nvim-markdown-notes-memgraph` CLI:
+   ```bash
+   pip install nvim-markdown-notes-memgraph
+   ```
+
+2. Start services with automatic Docker management:
+   ```bash
+   nvim-markdown-notes-memgraph start --notes-root ~/notes
+   ```
+
+The CLI automatically manages Memgraph, the MCP server, and all dependencies via Docker Compose.
+
+**Option B: Manual Docker setup**
 
 1. **Memgraph** - Run via Docker:
    ```bash
@@ -277,7 +310,21 @@ The graph uses the following schema:
 
 ### MCP Server for AI Access
 
-An MCP (Model Context Protocol) server is included for AI assistant integration:
+An MCP (Model Context Protocol) server is available for AI assistant integration.
+
+**Option A: Using the CLI tool (Recommended)**
+
+If you have the `nvim-markdown-notes-memgraph` CLI installed, generate the MCP configuration automatically:
+
+```bash
+nvim-markdown-notes-memgraph config --notes-root ~/notes
+```
+
+This outputs JSON you can add to your MCP client configuration (e.g., Claude Code's `claude_desktop_config.json`).
+
+**Option B: Using bundled scripts**
+
+An MCP server is included in this repository:
 
 ```bash
 # Install dependencies
