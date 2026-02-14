@@ -181,9 +181,24 @@ function M.ensure_services(callback)
   end
 
   -- Start services using the CLI
+  local service_output = {}
   vim.fn.jobstart(
     { "nvim-markdown-notes-memgraph", "--notes-root", M.opts.notes_root_path, "start" },
     {
+      on_stdout = function(_, data, _)
+        for _, line in ipairs(data) do
+          if line and line ~= "" then
+            table.insert(service_output, line)
+          end
+        end
+      end,
+      on_stderr = function(_, data, _)
+        for _, line in ipairs(data) do
+          if line and line ~= "" then
+            table.insert(service_output, line)
+          end
+        end
+      end,
       on_exit = function(_, exit_code, _)
         if exit_code == 0 then
           if M.opts and M.opts.debug_logging then
@@ -193,17 +208,18 @@ function M.ensure_services(callback)
             callback(true, "Services started", nil)
           end
         else
+          local output = table.concat(service_output, "\n")
           local err_msg = "Failed to start services (exit code: " .. exit_code .. ")"
-          if M.opts and M.opts.debug_logging then
-            vim.notify("[Memgraph] " .. err_msg, vim.log.levels.WARN)
+          if output ~= "" then
+            err_msg = err_msg .. ": " .. output
           end
           if callback then
             callback(false, nil, err_msg)
           end
         end
       end,
-      stdout_buffered = true,
-      stderr_buffered = true,
+      stdout_buffered = false,
+      stderr_buffered = false,
     }
   )
 end
@@ -370,12 +386,9 @@ function M.setup(opts)
       -- First try to install CLI if missing
       installer.ensure_cli(opts.memgraph, function(_)
         -- Then ensure services are running (if CLI is available)
-        M.ensure_services(function(service_success, service_msg, service_err)
+        M.ensure_services(function(service_success, _, service_err)
         if not service_success and service_err then
-          -- Service startup failed - log warning but continue with connection attempt
-          if opts.debug_logging then
-            vim.notify("[Memgraph] " .. (service_err or "Service startup error"), vim.log.levels.WARN)
-          end
+          vim.notify("[Memgraph] " .. service_err, vim.log.levels.WARN)
         end
 
         -- Now start the bridge and connect
