@@ -133,6 +133,12 @@ local function on_exit(_, exit_code, _)
   end
 end
 
+--- Check if the standalone CLI is available
+---@return boolean
+local function has_cli()
+  return vim.fn.executable("nvim-markdown-notes-memgraph") == 1
+end
+
 --- Start the Python bridge process
 ---@param callback function | nil Called with (success, message)
 function M.start(callback)
@@ -150,18 +156,35 @@ function M.start(callback)
     return
   end
 
-  local plugin_root = get_plugin_root()
-  local script_path = vim.fs.joinpath(plugin_root, "scripts", "memgraph_bridge.py")
+  local cmd
 
-  -- Check if script exists
-  if vim.fn.filereadable(script_path) == 0 then
-    if callback then
-      callback(false, "Bridge script not found: " .. script_path)
+  -- Check if standalone CLI is available
+  if has_cli() then
+    -- Use the CLI bridge command
+    cmd = { "nvim-markdown-notes-memgraph", "bridge" }
+
+    if M.opts and M.opts.debug_logging then
+      vim.notify("[Memgraph] Using nvim-markdown-notes-memgraph CLI", vim.log.levels.INFO)
     end
-    return
-  end
+  else
+    -- Fall back to bundled script
+    local plugin_root = get_plugin_root()
+    local script_path = vim.fs.joinpath(plugin_root, "scripts", "memgraph_bridge.py")
 
-  local cmd = { M.opts.memgraph.python_path, script_path }
+    -- Check if script exists
+    if vim.fn.filereadable(script_path) == 0 then
+      if callback then
+        callback(false, "Bridge script not found: " .. script_path)
+      end
+      return
+    end
+
+    cmd = { M.opts.memgraph.python_path, script_path }
+
+    if M.opts and M.opts.debug_logging then
+      vim.notify("[Memgraph] Using bundled bridge script", vim.log.levels.INFO)
+    end
+  end
 
   job_id = vim.fn.jobstart(cmd, {
     on_stdout = on_stdout,
