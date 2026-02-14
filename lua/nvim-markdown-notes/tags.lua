@@ -141,6 +141,7 @@ M.list_all_tags = function()
         }
       end,
     },
+    previewer = false,
     sorter = conf.generic_sorter({}),
     attach_mappings = function(prompt_bufnr, _)
       actions.select_default:replace(function()

@@ -357,17 +357,21 @@ function M.browse_tags()
     vim.schedule(function()
       pickers.new({}, {
         prompt_title = "Browse Tags (select to find notes)",
+        sorting_strategy = "ascending",
         finder = finders.new_table({
           results = tags,
           entry_maker = function(entry)
-            local display = string.format("#%-20s (%d notes)", entry.name, entry.count)
+            local name = tostring(entry.name or "")
+            local count = tonumber(entry.count) or 0
+            local display = string.format("#%-20s (%d notes)", name, count)
             return {
               value = entry,
               display = display,
-              ordinal = entry.name,
+              ordinal = name,
             }
           end,
         }),
+        previewer = false,
         sorter = conf.generic_sorter({}),
         attach_mappings = function(prompt_bufnr, _)
           actions.select_default:replace(function()
@@ -407,6 +411,7 @@ function M.browse_people()
     vim.schedule(function()
       pickers.new({}, {
         prompt_title = "Browse People (select to find notes)",
+        sorting_strategy = "ascending",
         finder = finders.new_table({
           results = persons,
           entry_maker = function(entry)
@@ -417,7 +422,7 @@ function M.browse_people()
             return {
               value = entry,
               display = display,
-              ordinal = entry.name .. " " .. (entry.display_name or ""),
+              ordinal = tostring(entry.name or "") .. " " .. tostring(entry.display_name or ""),
               filename = entry.note_path, -- If person has a dedicated note
             }
           end,
