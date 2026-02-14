@@ -174,37 +174,51 @@ function M.reindex_all(callback)
   local files = vim.fn.glob(M.opts.notes_root_path .. "/**/*.md", false, true)
   local extractor = get_extractor()
   local notes = {}
+  local batch_size = 10
+  local index = 1
 
-  -- Extract entities from each file
-  for _, filepath in ipairs(files) do
-    local entities = extractor.extract_from_file(filepath)
-    table.insert(notes, {
-      path = filepath,
-      title = entities.title,
-      content = entities.content,
-      wikilinks = entities.wikilinks,
-      mentions = entities.mentions,
-      hashtags = entities.hashtags,
-    })
+  -- Process files in batches, yielding to the event loop between each batch
+  local function process_batch()
+    local batch_end = math.min(index + batch_size - 1, #files)
+    for i = index, batch_end do
+      local filepath = files[i]
+      local entities = extractor.extract_from_file(filepath)
+      table.insert(notes, {
+        path = filepath,
+        title = entities.title,
+        content = entities.content,
+        wikilinks = entities.wikilinks,
+        mentions = entities.mentions,
+        hashtags = entities.hashtags,
+      })
+    end
+    index = batch_end + 1
+
+    if index <= #files then
+      -- Yield to event loop, then continue with next batch
+      vim.schedule(process_batch)
+    else
+      -- All files processed, send to graph
+      vim.notify("[Memgraph] Extracted " .. #notes .. " notes, sending to graph...", vim.log.levels.INFO)
+
+      connection.request("reindex", {
+        notes = notes,
+      }, function(success, data, err)
+        if success then
+          local indexed = data and data.indexed or 0
+          vim.notify("[Memgraph] Reindex complete: " .. indexed .. " notes indexed", vim.log.levels.INFO)
+        else
+          vim.notify("[Memgraph] Reindex failed: " .. error_to_string(err), vim.log.levels.ERROR)
+        end
+
+        if callback then
+          callback(success, data, err)
+        end
+      end)
+    end
   end
 
-  vim.notify("[Memgraph] Extracted " .. #notes .. " notes, sending to graph...", vim.log.levels.INFO)
-
-  -- Send reindex request
-  connection.request("reindex", {
-    notes = notes,
-  }, function(success, data, err)
-    if success then
-      local indexed = data and data.indexed or 0
-      vim.notify("[Memgraph] Reindex complete: " .. indexed .. " notes indexed", vim.log.levels.INFO)
-    else
-      vim.notify("[Memgraph] Reindex failed: " .. error_to_string(err), vim.log.levels.ERROR)
-    end
-
-    if callback then
-      callback(success, data, err)
-    end
-  end)
+  process_batch()
 end
 
 --- Setup the sync module
