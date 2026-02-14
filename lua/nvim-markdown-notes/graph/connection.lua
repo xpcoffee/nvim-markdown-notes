@@ -22,6 +22,12 @@ local callback_counter = 0
 ---@type string
 local response_buffer = ""
 
+---@type function | nil
+local startup_callback = nil
+
+---@type string[]
+local recent_stderr = {}
+
 --- Parse a JSON response from the bridge
 ---@param line string
 ---@return table | nil
@@ -104,6 +110,11 @@ end
 local function on_stderr(_, data, _)
   for _, line in ipairs(data) do
     if line and line ~= "" then
+      table.insert(recent_stderr, line)
+      -- Keep only the last 20 lines
+      if #recent_stderr > 20 then
+        table.remove(recent_stderr, 1)
+      end
       if M.opts and M.opts.debug_logging then
         vim.notify("[Memgraph Bridge] " .. line, vim.log.levels.WARN)
       end
@@ -117,14 +128,29 @@ local function on_exit(_, exit_code, _)
   job_id = nil
   is_connected = false
 
+  local stderr_tail = table.concat(recent_stderr, "\n")
+  local exit_msg = "Bridge process exited with code " .. exit_code
+  if stderr_tail ~= "" then
+    exit_msg = exit_msg .. ": " .. stderr_tail
+  end
+
   -- Fail all pending callbacks
   for key, cb in pairs(pending_callbacks) do
-    cb(false, nil, "Bridge process exited with code " .. exit_code)
+    cb(false, nil, exit_msg)
     pending_callbacks[key] = nil
   end
 
+  -- If bridge died during startup (before connect was attempted)
+  if startup_callback then
+    local cb = startup_callback
+    startup_callback = nil
+    cb(false, nil, exit_msg)
+  end
+
+  recent_stderr = {}
+
   if M.opts and M.opts.debug_logging then
-    vim.notify("[Memgraph] Bridge process exited with code " .. exit_code, vim.log.levels.INFO)
+    vim.notify("[Memgraph] " .. exit_msg, vim.log.levels.INFO)
   end
 end
 
@@ -215,6 +241,9 @@ function M.start(callback)
     vim.notify("[Memgraph] Using nvim-markdown-notes-memgraph CLI", vim.log.levels.INFO)
   end
 
+  recent_stderr = {}
+  startup_callback = callback
+
   job_id = vim.fn.jobstart(cmd, {
     on_stdout = on_stdout,
     on_stderr = on_stderr,
@@ -225,14 +254,20 @@ function M.start(callback)
 
   if job_id <= 0 then
     job_id = nil
+    startup_callback = nil
     if callback then
       callback(false, "Failed to start bridge process")
     end
     return
   end
 
-  -- Connect to Memgraph
+  -- Connect to Memgraph after bridge has had time to initialize
   vim.defer_fn(function()
+    -- If bridge already exited, on_exit handled the callback
+    if not job_id then
+      return
+    end
+    startup_callback = nil
     M.connect(callback)
   end, 100)
 end
