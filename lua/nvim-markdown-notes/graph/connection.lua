@@ -176,11 +176,9 @@ function M.ensure_services(callback)
     return
   end
 
-  if M.opts and M.opts.debug_logging then
-    vim.notify("[Memgraph] Starting services via CLI...", vim.log.levels.INFO)
-  end
+  vim.notify("[Memgraph] Starting services...", vim.log.levels.INFO)
 
-  -- Start services using the CLI
+  -- Start services using the CLI, streaming progress to notifications
   local service_output = {}
   vim.fn.jobstart(
     { "nvim-markdown-notes-memgraph", "--notes-root", M.opts.notes_root_path, "start" },
@@ -189,6 +187,9 @@ function M.ensure_services(callback)
         for _, line in ipairs(data) do
           if line and line ~= "" then
             table.insert(service_output, line)
+            vim.schedule(function()
+              vim.notify("[Memgraph] " .. line, vim.log.levels.INFO)
+            end)
           end
         end
       end,
@@ -201,9 +202,6 @@ function M.ensure_services(callback)
       end,
       on_exit = function(_, exit_code, _)
         if exit_code == 0 then
-          if M.opts and M.opts.debug_logging then
-            vim.notify("[Memgraph] Services started successfully", vim.log.levels.INFO)
-          end
           if callback then
             callback(true, "Services started", nil)
           end
@@ -284,6 +282,7 @@ function M.start(callback)
       return
     end
     startup_callback = nil
+    vim.notify("[Memgraph] Connecting...", vim.log.levels.INFO)
     M.connect(callback)
   end, 100)
 end
@@ -394,13 +393,11 @@ function M.setup(opts)
         -- Now start the bridge and connect
         M.start(function(success, data, err)
           if success then
-            if opts.debug_logging then
-              local msg = "Connected"
-              if type(data) == "table" and type(data.message) == "string" then
-                msg = data.message
-              end
-              vim.notify("[Memgraph] " .. msg, vim.log.levels.INFO)
+            local msg = "Connected"
+            if type(data) == "table" and type(data.message) == "string" then
+              msg = data.message
             end
+            vim.notify("[Memgraph] " .. msg, vim.log.levels.INFO)
           else
             local error_msg = "unknown error"
             if type(err) == "string" then
