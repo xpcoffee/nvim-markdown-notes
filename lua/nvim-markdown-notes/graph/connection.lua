@@ -182,7 +182,7 @@ function M.ensure_services(callback)
 
   -- Start services using the CLI
   vim.fn.jobstart(
-    { "nvim-markdown-notes-memgraph", "start" },
+    { "nvim-markdown-notes-memgraph", "--notes-root", M.opts.notes_root_path, "start" },
     {
       on_exit = function(_, exit_code, _)
         if exit_code == 0 then
@@ -235,7 +235,7 @@ function M.start(callback)
     return
   end
 
-  cmd = { "nvim-markdown-notes-memgraph", "bridge" }
+  cmd = { "nvim-markdown-notes-memgraph", "--notes-root", M.opts.notes_root_path, "bridge" }
 
   if M.opts and M.opts.debug_logging then
     vim.notify("[Memgraph] Using nvim-markdown-notes-memgraph CLI", vim.log.levels.INFO)
