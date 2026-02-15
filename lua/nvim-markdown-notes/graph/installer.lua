@@ -31,16 +31,37 @@ end
 local function run_install(cmd, callback)
   vim.notify("[Memgraph] Installing CLI via: " .. format_cmd(cmd), vim.log.levels.INFO)
 
+  local stderr_lines = {}
+  local stdout_lines = {}
+
   vim.fn.jobstart(cmd, {
     stdout_buffered = true,
     stderr_buffered = true,
+    on_stdout = function(_, data, _)
+      if data then
+        vim.list_extend(stdout_lines, data)
+      end
+    end,
+    on_stderr = function(_, data, _)
+      if data then
+        vim.list_extend(stderr_lines, data)
+      end
+    end,
     on_exit = function(_, exit_code, _)
       vim.schedule(function()
         if exit_code == 0 then
           vim.notify("[Memgraph] CLI installed successfully", vim.log.levels.INFO)
           callback(true)
         else
-          vim.notify("[Memgraph] CLI installation failed (exit code: " .. exit_code .. ")", vim.log.levels.ERROR)
+          local output = table.concat(stderr_lines, "\n")
+          if output == "" then
+            output = table.concat(stdout_lines, "\n")
+          end
+          local msg = "[Memgraph] CLI installation failed (exit code: " .. exit_code .. ")"
+          if output ~= "" then
+            msg = msg .. "\n" .. output
+          end
+          vim.notify(msg, vim.log.levels.ERROR)
           callback(false)
         end
       end)
