@@ -233,10 +233,9 @@ M.get_markdown_notes_node = function(bufnr, row, col, custom_lang)
 		if node and node:type() == ROOT_NODE_NAME then
 			for child in node:iter_children() do
 				local child_start_row, child_start_col, child_end_row, child_end_col = child:range()
-				if
-					(child_start_row <= row and child_end_row >= row)
-					and (child_start_col <= col and child_end_col >= col)
-				then
+				local after_start = (row > child_start_row) or (row == child_start_row and col >= child_start_col)
+				local before_end = (row < child_end_row) or (row == child_end_row and col < child_end_col)
+				if after_start and before_end then
 					node = child
 					break
 				end

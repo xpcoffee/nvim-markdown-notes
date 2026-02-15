@@ -18,6 +18,6 @@ module.exports = grammar({
     link_text: () => /[^\]]+/,
 
     // Text: matches non-special chars OR email addresses (to prevent @ in emails becoming mentions)
-    text: () => /([^\[@#]|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})+/,
+    text: () => /([^\[@#]|\[[^\[]|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})+/,
   },
 });
