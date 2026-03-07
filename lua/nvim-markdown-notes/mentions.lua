@@ -46,7 +46,13 @@ M.jump = function(node)
   if note_filepath == nil then
     vim.ui.select({ 'Yes', 'No' }, { prompt = 'Person not found. Create a new note for them?' }, function(result)
       if result == 'Yes' then
-        notes.create_note("New person", M.opts.people_dir_path, text)
+        local default_title = text:gsub("-", " "):gsub("(%a)([%w]*)", function(first, rest)
+          return first:upper() .. rest
+        end)
+        local title = vim.fn.input({ prompt = "Note title: ", default = default_title })
+        if title ~= "" then
+          notes.create_note(title, M.opts.people_dir_path, text)
+        end
       end
 
       -- update the node text
