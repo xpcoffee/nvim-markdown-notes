@@ -30,10 +30,24 @@ M.jump = function(node)
   if note_filepath == nil then
     vim.ui.select({ 'Yes', 'No' }, { prompt = 'Note does not exist. Create it?' }, function(result)
       if result == 'Yes' then
-        notes.create_note("New note", M.opts.notes_root_path, text)
+        local default_title = text:gsub("-", " "):gsub("(%a)([%w]*)", function(first, rest)
+          return first:upper() .. rest
+        end)
+        local title = vim.fn.input({ prompt = "Note title: ", default = default_title })
+        if title ~= "" then
+          local new_filename = title:gsub(" ", "-"):lower()
+          notes.create_note(title, M.opts.notes_root_path, new_filename)
+          if new_filename ~= text then
+            for child, _ in node:iter_children() do
+              if child:type() == "link_text" then
+                local sr, sc, er, ec = child:range()
+                vim.api.nvim_buf_set_text(0, sr, sc, er, ec, { new_filename })
+                break
+              end
+            end
+          end
+        end
       end
-
-      --todo replace the text in the node with the relative filepath
     end)
   else
     vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))

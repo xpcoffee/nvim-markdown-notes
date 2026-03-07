@@ -51,11 +51,19 @@ M.jump = function(node)
         end)
         local title = vim.fn.input({ prompt = "Note title: ", default = default_title })
         if title ~= "" then
-          notes.create_note(title, M.opts.people_dir_path, text)
+          local new_filename = title:gsub(" ", "-"):lower()
+          notes.create_note(title, M.opts.people_dir_path, new_filename)
+          if new_filename ~= text then
+            for child, _ in node:iter_children() do
+              if child:type() == "mention_text" then
+                local sr, sc, er, ec = child:range()
+                vim.api.nvim_buf_set_text(0, sr, sc, er, ec, { new_filename })
+                break
+              end
+            end
+          end
         end
       end
-
-      -- update the node text
     end)
   else
     vim.cmd('e ' .. vim.fn.fnameescape(note_filepath))
