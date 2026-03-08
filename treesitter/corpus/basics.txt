@@ -38,6 +38,21 @@ hello@gmail.com
 ---
 (source_file (hashtag (hashtag_text)))
 
+=== mention at end of line ===
+hello @alice
+next line
+---
+(source_file
+  (text)
+  (mention (mention_text))
+  (text))
+
+=== hash in heading is text ===
+# My Heading
+---
+(source_file
+  (text))
+
 === mixed content ===
 See [[docs]] and @alice about #project
 ---

@@ -1,6 +1,10 @@
 module.exports = grammar({
   name: "markdown_notes",
 
+  // Disable implicit whitespace between tokens to prevent mentions/hashtags
+  // from spanning across lines (e.g. @\nalice being parsed as @alice)
+  extras: () => [],
+
   rules: {
     source_file: ($) =>
       repeat(choice($.wikilink, $.mention, $.hashtag, $.text)),
@@ -17,7 +21,8 @@ module.exports = grammar({
 
     link_text: () => /[^\]]+/,
 
-    // Text: matches non-special chars OR email addresses (to prevent @ in emails becoming mentions)
-    text: () => /([^\[@#]|\[[^\[]|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})+/,
+    // Text: matches non-special chars, email addresses (to prevent @ in emails becoming mentions),
+    // or @/# followed by whitespace (e.g. "# heading", "@ alone")
+    text: () => /([^\[@#]|\[[^\[]|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[@#][\s])+/,
   },
 });
