@@ -160,32 +160,9 @@ local function resolve_title(node_type, text)
   return get_title(filepath)
 end
 
---- Check if cursor position is inside a node range
----@param cursor_row number 0-indexed
----@param cursor_col number 0-indexed
----@param sr number start row
----@param sc number start col
----@param er number end row
----@param ec number end col
----@return boolean
-local function cursor_in_range(cursor_row, cursor_col, sr, sc, er, ec)
-  if cursor_row < sr or cursor_row > er then
-    return false
-  end
-  if cursor_row == sr and cursor_col < sc then
-    return false
-  end
-  if cursor_row == er and cursor_col >= ec then
-    return false
-  end
-  return true
-end
-
---- Update extmarks for virtual titles, expanding the node under the cursor
+--- Update extmarks for virtual titles
 ---@param bufnr number
----@param cursor_row number|nil 0-indexed
----@param cursor_col number|nil 0-indexed
-local function update_extmarks(bufnr, cursor_row, cursor_col)
+local function update_extmarks(bufnr)
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
 
   local nodes = collect_nodes(bufnr)
@@ -193,10 +170,6 @@ local function update_extmarks(bufnr, cursor_row, cursor_col)
   for _, node in ipairs(nodes) do
     local sr, sc, er, ec = node.range[1], node.range[2], node.range[3], node.range[4]
 
-    -- Skip the node under the cursor so raw text is visible
-    if cursor_row and cursor_col and cursor_in_range(cursor_row, cursor_col, sr, sc, er, ec) then
-      goto continue
-    end
 
     local title = resolve_title(node.type, node.text)
     if not title then
@@ -231,40 +204,27 @@ function M.attach(bufnr)
     return
   end
 
-  -- Set conceallevel so conceal extmarks work, and concealcursor
-  -- so conceal stays active on the cursor line in all modes
+  -- Set conceallevel so conceal extmarks work
+  -- concealcursor left unset so cursor line reveals raw text naturally
   vim.api.nvim_set_option_value("conceallevel", 2, { win = 0 })
-  vim.api.nvim_set_option_value("concealcursor", "nvic", { win = 0 })
-
-  -- Helper to get cursor and update
-  local function render(bufnr_inner)
-    local cursor = vim.api.nvim_win_get_cursor(0)
-    update_extmarks(bufnr_inner, cursor[1] - 1, cursor[2])
-  end
 
   -- Initial render
   vim.schedule(function()
     if not vim.api.nvim_buf_is_valid(bufnr) then
       return
     end
-    render(bufnr)
+    update_extmarks(bufnr)
   end)
 
   local group = vim.api.nvim_create_augroup("MarkdownNotesVirtualTitles_" .. bufnr, { clear = true })
-
-  vim.api.nvim_create_autocmd("CursorMoved", {
-    group = group,
-    buffer = bufnr,
-    callback = function()
-      render(bufnr)
-    end,
-  })
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     group = group,
     buffer = bufnr,
     callback = function()
-      render(bufnr)
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        update_extmarks(bufnr)
+      end
     end,
   })
 
