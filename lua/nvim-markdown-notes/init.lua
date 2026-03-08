@@ -9,6 +9,8 @@ local wikilink = require("nvim-markdown-notes.wikilink")
 local mentions = require("nvim-markdown-notes.mentions")
 local weblink = require("nvim-markdown-notes.weblink")
 local graph = require("nvim-markdown-notes.graph")
+local virtual_titles = require("nvim-markdown-notes.virtual_titles")
+local preview = require("nvim-markdown-notes.preview")
 
 -- export functions from modules
 -- Tags (uses graph if available, falls back to ripgrep)
@@ -114,6 +116,8 @@ M.setup = function(opts)
 	weblink.setup(options)
 	custom_parser.setup(options)
 	graph.setup(options)
+	virtual_titles.setup(options)
+	preview.setup(options)
 
 	-- Set up highlight groups for markdown_notes treesitter captures
 	for group, settings in pairs(options.highlights) do
@@ -125,9 +129,16 @@ M.setup = function(opts)
 	vim.api.nvim_create_autocmd("FileType", {
 		group = "MarkdownNotes",
 		pattern = "markdown",
-		callback = function()
+		callback = function(args)
+			local bufnr = args.buf
 			-- Map gf and Ctrl-] to follow_link function
-			vim.keymap.set("n", "<C-]>", M.custom_jump_to_tag, { buffer = true, desc = "Follow note link" })
+			vim.keymap.set("n", "<C-]>", M.custom_jump_to_tag, { buffer = bufnr, desc = "Follow note link" })
+
+			-- Attach virtual titles and preview
+			if options.virtual_titles then
+				virtual_titles.attach(bufnr)
+			end
+			preview.attach(bufnr)
 		end,
 	})
 

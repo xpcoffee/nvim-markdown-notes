@@ -11,6 +11,8 @@ A Neovim plugin for managing a repo of Markdown notes, inspired by tools like Ob
 - **Journal Picker:** Quickly open recent journal files (today, yesterday, last 5 days) via a Telescope menu.
 - **Create Note:** Create new notes with date-prefixed filenames in YYYY-MM-dd format.
 - **Smart Link Following:** Navigate to notes using `gf` or `Ctrl-]` on `[[note_name]]` links or words, with automatic note creation for missing files.
+- **Virtual Titles:** Inline display of resolved note titles for `[[wikilinks]]` and `@mentions`. The link under the cursor expands to show raw text for editing.
+- **Floating Preview:** Press `K` to preview the contents of the linked note in a floating window.
 - **Graph Database (Optional):** Index your notes in Memgraph for fast relationship queries, backlinks, and AI-powered exploration.
 
 ## Prerequisites
@@ -117,6 +119,8 @@ Set up the plugin with your notes directory and journal subfolder:
 require("nvim-markdown-notes").setup {
   notes_root_path = "~/notes",
   journal_dir_name = "journal",
+  virtual_titles = true,          -- show resolved titles inline (default: true)
+  preview_keymap = "K",           -- keymap for floating preview (default: "K")
 }
 ```
 

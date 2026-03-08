@@ -16,6 +16,8 @@
 ---@field highlights? {string: vim.api.keyset.highlight} Custom highlights
 ---@field debug_logging? boolean
 ---@field add_date_prefix? boolean
+---@field virtual_titles? boolean Show resolved titles for wikilinks/mentions
+---@field preview_keymap? string Keymap for floating preview (default "K")
 ---@field memgraph? MemgraphOpts Memgraph graph database configuration
 
 ---@class MemgraphFullOpts
@@ -36,6 +38,8 @@
 ---@field highlights {string: vim.api.keyset.highlight} Custom highlights
 ---@field debug_logging boolean
 ---@field add_date_prefix boolean
+---@field virtual_titles boolean Show resolved titles for wikilinks/mentions
+---@field preview_keymap string Keymap for floating preview
 ---@field memgraph MemgraphFullOpts Memgraph graph database configuration
 
 local M = {}
@@ -62,6 +66,8 @@ local defaults = {
   },
   debug_logging = false,
   add_date_prefix = true,
+  virtual_titles = true,
+  preview_keymap = "K",
   memgraph = memgraph_defaults,
 }
 
